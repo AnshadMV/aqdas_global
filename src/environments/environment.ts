@@ -8,5 +8,8 @@ export const environment = {
         storageBucket: "aqdas-2ae3c.firebasestorage.app",
         messagingSenderId: "66323618039",
         appId: "1:66323618039:web:6cb154c2ea2c48a0f91bf2"
+    },
+    cloudinary: {
+        cloudName: "dqzifaa9n"
     }
 };

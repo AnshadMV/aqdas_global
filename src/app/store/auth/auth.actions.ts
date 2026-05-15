@@ -12,6 +12,11 @@ export const AuthActions = createActionGroup({
     'Login Success': props<{ user: User }>(),
     'Login Failure': props<{ error: AuthError }>(),
 
+    /** Google login */
+    'Google Login': emptyProps(),
+    'Google Login Success': props<{ user: User }>(),
+    'Google Login Failure': props<{ error: AuthError }>(),
+
     /** Registration */
     'Register': props<{ email: string; password: string; displayName: string }>(),
     'Register Success': props<{ user: User }>(),
@@ -21,6 +26,11 @@ export const AuthActions = createActionGroup({
     'Logout': emptyProps(),
     'Logout Success': emptyProps(),
     'Logout Failure': props<{ error: AuthError }>(),
+
+    /** Forgot Password */
+    'Forgot Password': props<{ email: string }>(),
+    'Forgot Password Success': emptyProps(),
+    'Forgot Password Failure': props<{ error: AuthError }>(),
 
     /** Check existing auth state on app init */
     'Check Auth': emptyProps(),

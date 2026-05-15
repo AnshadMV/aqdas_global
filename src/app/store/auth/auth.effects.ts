@@ -1,18 +1,19 @@
 import { inject, Injectable } from '@angular/core';
+import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { of } from 'rxjs';
-import { map, exhaustMap, catchError } from 'rxjs/operators';
+import { map, exhaustMap, catchError, tap } from 'rxjs/operators';
 import { AuthActions } from './auth.actions';
 import { AuthService } from '../../core/services/auth.service';
-import { AuthError } from '../../shared/models';
+import type { AuthError } from '../../shared/models';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
-/**
- * Auth effects handle Firebase Authentication side-effects.
- */
 @Injectable()
 export class AuthEffects {
   private readonly actions$ = inject(Actions);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly toastService = inject(ToastService);
 
   readonly login$ = createEffect(() =>
     this.actions$.pipe(
@@ -20,9 +21,19 @@ export class AuthEffects {
       exhaustMap(({ email, password }) =>
         this.authService.login(email, password).pipe(
           map((user) => AuthActions.loginSuccess({ user })),
-          catchError((error: AuthError) =>
-            of(AuthActions.loginFailure({ error }))
-          )
+          catchError((error: AuthError) => of(AuthActions.loginFailure({ error })))
+        )
+      )
+    )
+  );
+
+  readonly googleLogin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.googleLogin),
+      exhaustMap(() =>
+        this.authService.googleLogin().pipe(
+          map((user) => AuthActions.googleLoginSuccess({ user })),
+          catchError((error: AuthError) => of(AuthActions.googleLoginFailure({ error })))
         )
       )
     )
@@ -34,12 +45,46 @@ export class AuthEffects {
       exhaustMap(({ email, password, displayName }) =>
         this.authService.register(email, password, displayName).pipe(
           map((user) => AuthActions.registerSuccess({ user })),
-          catchError((error: AuthError) =>
-            of(AuthActions.registerFailure({ error }))
-          )
+          catchError((error: AuthError) => of(AuthActions.registerFailure({ error })))
         )
       )
     )
+  );
+
+  /** Navigate home and show toast on successful login/register */
+  readonly loginRedirect$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.loginSuccess, AuthActions.registerSuccess, AuthActions.googleLoginSuccess),
+        tap(({ user }) => {
+          if (user.role === 'admin') {
+            this.router.navigate(['/admin/dashboard']);
+            this.toastService.success('Welcome back, Admin!');
+          } else {
+            this.router.navigate(['/']);
+            this.toastService.success('Successfully signed in!');
+          }
+        })
+      ),
+    { dispatch: false }
+  );
+
+  readonly toastOnLogout$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.logoutSuccess),
+        tap(() => this.toastService.info('You have been signed out'))
+      ),
+    { dispatch: false }
+  );
+
+  readonly toastOnAuthError$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.loginFailure, AuthActions.registerFailure, AuthActions.googleLoginFailure),
+        tap(({ error }) => this.toastService.error(error.message || 'Authentication failed'))
+      ),
+    { dispatch: false }
   );
 
   readonly logout$ = createEffect(() =>
@@ -48,9 +93,19 @@ export class AuthEffects {
       exhaustMap(() =>
         this.authService.logout().pipe(
           map(() => AuthActions.logoutSuccess()),
-          catchError((error: AuthError) =>
-            of(AuthActions.logoutFailure({ error }))
-          )
+          catchError((error: AuthError) => of(AuthActions.logoutFailure({ error })))
+        )
+      )
+    )
+  );
+
+  readonly forgotPassword$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.forgotPassword),
+      exhaustMap(({ email }) =>
+        this.authService.forgotPassword(email).pipe(
+          map(() => AuthActions.forgotPasswordSuccess()),
+          catchError((error: AuthError) => of(AuthActions.forgotPasswordFailure({ error })))
         )
       )
     )

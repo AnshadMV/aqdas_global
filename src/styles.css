@@ -1,3 +1,138 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/* ─── Tailwind 4 Theme ─────────────────────────────────── */
+@theme {
+  --color-primary: var(--theme-primary);
+  --color-primary-dark: var(--theme-primary-dark);
+  --color-primary-light: var(--theme-primary-light);
+  --color-secondary: var(--theme-secondary);
+  --color-accent: var(--theme-accent);
+  --color-accent-dark: var(--theme-accent-dark);
+  --color-dark: var(--theme-dark);
+  --color-dark-light: var(--theme-dark-light);
+  --color-cream: var(--theme-cream);
+  --color-cream-dark: var(--theme-cream-dark);
+  --color-white: var(--theme-white); /* Override default white for cards */
+
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Poppins', sans-serif;
+}
+
+@layer base {
+  :root {
+    --theme-primary: #355E3B;
+    --theme-primary-dark: #2A4B30;
+    --theme-primary-light: #4A7A53;
+    --theme-secondary: #F8F5EE;
+    --theme-accent: #D4A017;
+    --theme-accent-dark: #B58A13;
+    --theme-dark: #1A1A1A;
+    --theme-dark-light: #333333;
+    --theme-cream: #FFF9F0;
+    --theme-cream-dark: #F0EBE0;
+    --theme-white: #FFFFFF;
+  }
+
+  :root.dark {
+    --theme-primary: #4A7A53;
+    --theme-primary-dark: #355E3B;
+    --theme-primary-light: #5B8C65;
+    --theme-secondary: #0D0D0D; /* Very dark background */
+    --theme-accent: #E5B124;
+    --theme-accent-dark: #D4A017;
+    --theme-dark: #F8F5EE; /* Text becomes light */
+    --theme-dark-light: #CCCCCC;
+    --theme-cream: #1A1A1A; /* Cards/Images backgrounds become dark */
+    --theme-cream-dark: #262626;
+    --theme-white: #141414; /* White cards become dark grey */
+  }
+}
+
+/* ─── Global Reset ─────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  color: var(--theme-dark);
+  background-color: var(--theme-secondary);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', serif;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* ─── Utility Classes ──────────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Scrollbar Styling ────────────────────────────────── */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F5EE;
+}
+::-webkit-scrollbar-thumb {
+  background: #355E3B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2A4B30;
+}
+
+/* ─── Selection Color ──────────────────────────────────── */
+::selection {
+  background: rgba(53, 94, 59, 0.2);
+  color: #1A1A1A;
+}
