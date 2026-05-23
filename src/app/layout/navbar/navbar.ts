@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal, inject, PLATFORM_ID } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, NgOptimizedImage } from '@angular/common';
 import { afterNextRender, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -13,7 +13,7 @@ import { selectWishlistCount } from '../../store/wishlist/wishlist.selectors';
 @Component({
   selector: 'app-navbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, FormsModule],
+  imports: [RouterLink, RouterLinkActive, FormsModule, NgOptimizedImage],
   host: { 'class': 'block' },
   styles: `
     .nav-link::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #D4A017; transition: width 0.3s ease; }
@@ -22,13 +22,22 @@ import { selectWishlistCount } from '../../store/wishlist/wishlist.selectors';
     .menu-open .hamburger-line:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
     .menu-open .hamburger-line:nth-child(2) { opacity: 0; }
     .menu-open .hamburger-line:nth-child(3) { transform: rotate(-45deg) translate(7px, -6px); }
+    .search-input { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .premium-search-box { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .premium-search-box:focus-within { transform: translateY(-1px); }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-slideLeft { animation: slideLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+    .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    @keyframes slideLeft { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   `,
   template: `
     <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-500" [class]="scrolled() ? 'bg-white/90 backdrop-blur-xl shadow-lg shadow-primary/5' : 'bg-transparent'">
-      <div class="max-w-7xl mx-auto px-6 lg:px-8">
-        <div class="flex items-center justify-between h-20">
+      <div class="w-full px-8 lg:px-16">
+        <div class="flex items-center justify-between h-20 p-16">
           <a routerLink="/" class="flex items-center gap-2 group" aria-label="AQDAS Home">
-            <span class="font-heading text-3xl font-bold text-primary tracking-tight">AQDAS</span>
+            <img ngSrc="assets/logo.png" alt="AQDAS Logo" width="50" height="50" priority class="w-20 h-20 object-contain">
             <span class="text-accent text-xs font-body font-medium tracking-widest uppercase opacity-70">Spices</span>
           </a>
 
@@ -40,39 +49,84 @@ import { selectWishlistCount } from '../../store/wishlist/wishlist.selectors';
             }
           </div>
 
-          <div class="flex items-center gap-3">
-            <!-- Search -->
-            <div class="relative hidden md:block mr-2" (focusout)="onSearchBlur($event)">
-              <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-3 top-1/2 -translate-y-1/2 text-dark/40"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input 
-                  type="text" 
-                  [ngModel]="searchQuery()"
-                  (ngModelChange)="searchQuery.set($event)"
-                  (focus)="searchFocused.set(true)"
-                  placeholder="Search products..." 
-                  class="w-48 lg:w-64 pl-9 pr-4 py-2 rounded-full border border-dark/10 bg-white/50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-body text-sm transition-all"
-                />
+          <div class="flex items-center gap-3 pl-16">
+            <!-- Premium SaaS Search -->
+            <div class="relative hidden md:block mr-2 premium-search-box group" (focusout)="onSearchBlur($event)">
+              <div class="relative flex items-center">
+                
+                @if (!isSearchExpanded()) {
+                  <button (click)="toggleSearch()" class="p-2.5 rounded-full hover:bg-primary/5 transition-all duration-300 text-dark/60 hover:text-primary animate-fadeIn" aria-label="Open search">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </button>
+                } @else {
+                  <!-- Advanced Glow -->
+                  <div class="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700"></div>
+
+                  <!-- Input Container -->
+                  <div class="relative z-10 flex items-center w-72 lg:w-96 h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl overflow-hidden transition-all duration-500 group-focus-within:bg-white group-focus-within:border-primary/40 group-focus-within:shadow-[0_20px_50px_rgba(0,0,0,0.12)] animate-slideLeft">
+                    
+                    <div class="w-16 h-full flex items-center justify-center flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white/40 group-focus-within:text-primary transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+
+                    <input 
+                      #searchInput
+                      type="text" 
+                      [ngModel]="searchQuery()"
+                      (ngModelChange)="searchQuery.set($event)"
+                      (focus)="searchFocused.set(true)"
+                      placeholder="Search premium collections..." 
+                      class="search-input flex-1 h-full bg-transparent outline-none text-white group-focus-within:text-dark placeholder:text-white/30 group-focus-within:placeholder:text-dark/30 font-body text-sm font-medium tracking-wide transition-all"
+                    />
+
+                    <!-- Clear Button -->
+                    @if (searchQuery().length > 0) {
+                      <button (click)="searchQuery.set(''); closeSearch()" class="w-14 h-full flex items-center justify-center flex-shrink-0 text-red-500 hover:text-red-600 ransition-colors" aria-label="Clear">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                      </button>
+                    }
+                  </div>
+                }
               </div>
               
-              <!-- Suggestions Dropdown -->
-              @if (searchFocused() && searchQuery().length >= 2) {
-                <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-dark/5 overflow-hidden z-50 max-h-80 overflow-y-auto animate-slideDown">
-                  @if (suggestions().length > 0) {
+              <!-- Refined Dropdown -->
+              @if (isSearchExpanded() && searchFocused() && searchQuery().length >= 2) {
+                <div class="absolute top-full left-0 right-0 w-fullmt-5 bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_40px_100px_rgba(0,0,0,0.15)] border border-white/60 overflow-hidden z-50 max-h-[550px] overflow-y-auto animate-slideDown">
+                  <div class="px-8 py-5 border-b border-dark/5 dark:border-white/5 bg-secondary/5 dark:bg-white/5 flex justify-between items-center">
+                    <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-dark/40 dark:text-white/50">Available in Shop</span>
+                    <span class="text-[10px] font-bold text-primary px-2 py-1 bg-primary/10 rounded-lg">{{ suggestions().length }} Results</span>
+                  </div>
+
+                  <div class="py-3">
+                    @if (suggestions().length > 0) {
                     @for (product of suggestions(); track product.id) {
-                      <a [routerLink]="['/shop', product.id]" (click)="closeSearch()" class="flex items-center gap-3 p-3 hover:bg-secondary/50 transition-colors border-b border-dark/5 last:border-0">
-                        <img [src]="product.imageUrl" [alt]="product.name" class="w-10 h-10 rounded-lg object-cover bg-cream flex-shrink-0" />
-                        <div>
-                          <p class="font-body text-sm font-semibold text-dark line-clamp-1">{{ product.name }}</p>
-                          <p class="font-body text-xs text-primary font-bold">₹{{ product.price }}</p>
+                      <a [routerLink]="['/shop', product.id]" (click)="closeSearch()" class="group/item flex items-center gap-5 p-4 mx-4 my-2 rounded-2xl hover:bg-secondary/10 dark:hover:bg-white/5 transition-all">
+                        <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-cream flex-shrink-0 shadow-sm group-hover/item:shadow-md transition-all duration-500 group-hover/item:scale-105">
+                          <img [src]="product.imageUrl" [alt]="product.name" class="w-full h-full object-cover" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="font-body text-base font-bold text-primary truncate group-hover/item:text-primary transition-colors">{{ product.name }}</p>
+                          <div class="flex items-center gap-3 mt-1.5">
+                             <p class="font-body text-sm font-bold text-primary">₹{{ product.price }}</p>
+                             <div class="w-1 h-1 rounded-full bg-dark/10 dark:bg-white/20"></div>
+                             <span class="text-[10px] font-bold text-dark/40 dark:text-white/40 uppercase tracking-widest group-hover/item:text-primary transition-colors">In Stock</span>
+                          </div>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-white dark:bg-white/10 shadow-sm flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-all -translate-x-4 group-hover/item:translate-x-0">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-primary"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
                         </div>
                       </a>
                     }
                   } @else {
-                    <div class="p-4 text-center font-body text-sm text-dark/50">
-                      No products found.
+                    <div class="p-16 text-center">
+                      <div class="w-20 h-20 bg-secondary/20 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dark/20 dark:text-white/20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      </div>
+                      <p class="font-body text-base font-semibold text-slate-800 dark:text-white/60 italic">Nothing found for "{{ searchQuery() }}"</p>
+                      <button (click)="searchQuery.set('')" class="mt-4 text-primary font-bold text-xs uppercase tracking-widest hover:underline">Clear Search</button>
                     </div>
                   }
+                  </div>
                 </div>
               }
             </div>
@@ -105,11 +159,11 @@ import { selectWishlistCount } from '../../store/wishlist/wishlist.selectors';
             <!-- User -->
             @if (user()) {
               <div class="relative">
-                <button (click)="showUserMenu.set(!showUserMenu())" class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center font-body text-sm font-bold" [attr.aria-label]="'User menu for ' + user()!.displayName">
+                <button (click)="showUserMenu.set(!showUserMenu())" class="w-9 h-9 rounded-full bg-primary flex items-center justify-center font-body text-sm font-bold" [attr.aria-label]="'User menu for ' + user()!.displayName">
                   {{ user()!.displayName?.charAt(0)?.toUpperCase() || 'U' }}
                 </button>
                 @if (showUserMenu()) {
-                  <div class="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-dark/5 py-2 z-50">
+                  <div class="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-dark/10 py-2 z-50">
                     <p class="px-4 py-2 font-body text-xs text-dark/40 truncate">{{ user()!.email }}</p>
                     <button (click)="logout()" class="w-full text-left px-4 py-2 font-body text-sm text-dark/70 hover:bg-primary/5 hover:text-primary transition-colors">
                       Sign Out
@@ -156,9 +210,10 @@ export class NavbarComponent {
   readonly mobileMenuOpen = signal(false);
   readonly showUserMenu = signal(false);
   readonly isDarkMode = signal(false);
-  
+
   readonly searchQuery = signal('');
   readonly searchFocused = signal(false);
+  readonly isSearchExpanded = signal(false);
 
   readonly cartCount = this.store.selectSignal(selectCartCount);
   readonly wishlistCount = this.store.selectSignal(selectWishlistCount);
@@ -216,16 +271,37 @@ export class NavbarComponent {
   closeMobileMenu(): void { this.mobileMenuOpen.set(false); }
 
   onSearchBlur(event: FocusEvent): void {
-    // Delay closing so that click events on the dropdown items can fire
     const relatedTarget = event.relatedTarget as HTMLElement;
-    if (relatedTarget?.closest('a')) {
+    // Don't close if we're clicking inside the search box or its children
+    if (relatedTarget?.closest('.premium-search-box')) {
       return;
     }
-    setTimeout(() => this.searchFocused.set(false), 200);
+
+    setTimeout(() => {
+      // Check if focus was regained within the search box (e.g. after toggle)
+      if (document.activeElement?.closest('.premium-search-box')) {
+        return;
+      }
+
+      this.searchFocused.set(false);
+      if (this.searchQuery().length === 0) {
+        this.isSearchExpanded.set(false);
+      }
+    }, 200);
+  }
+
+  toggleSearch(): void {
+    this.isSearchExpanded.set(true);
+    // Focus the input after it's rendered
+    setTimeout(() => {
+      const input = document.querySelector('.search-input') as HTMLInputElement;
+      input?.focus();
+    }, 100);
   }
 
   closeSearch(): void {
     this.searchFocused.set(false);
+    this.isSearchExpanded.set(false);
     this.searchQuery.set('');
   }
 

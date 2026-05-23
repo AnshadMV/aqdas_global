@@ -6,6 +6,7 @@ import { CategoriesSectionComponent } from './sections/categories-section';
 import { AboutSectionComponent } from './sections/about-section';
 import { TestimonialsSectionComponent } from './sections/testimonials-section';
 import { OfferBannerComponent } from './sections/offer-banner';
+import { GallerySectionComponent } from './sections/gallery-section';
 
 @Component({
   selector: 'app-home',
@@ -17,15 +18,17 @@ import { OfferBannerComponent } from './sections/offer-banner';
     AboutSectionComponent,
     TestimonialsSectionComponent,
     OfferBannerComponent,
+    GallerySectionComponent,
   ],
   host: { 'class': 'block' },
   template: `
     <app-hero-section />
-    <app-featured-products />
     <app-categories-section />
+    <app-featured-products />
     <app-about-section />
-    <app-offer-banner />
     <app-testimonials-section />
+    <app-offer-banner />
+    <app-gallery-section />
   `,
 })
 export class HomeComponent implements OnInit {

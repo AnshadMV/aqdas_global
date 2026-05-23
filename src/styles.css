@@ -20,31 +20,31 @@
 
 @layer base {
   :root {
-    --theme-primary: #355E3B;
-    --theme-primary-dark: #2A4B30;
-    --theme-primary-light: #4A7A53;
-    --theme-secondary: #F8F5EE;
-    --theme-accent: #D4A017;
-    --theme-accent-dark: #B58A13;
-    --theme-dark: #1A1A1A;
-    --theme-dark-light: #333333;
-    --theme-cream: #FFF9F0;
-    --theme-cream-dark: #F0EBE0;
-    --theme-white: #FFFFFF;
+    --theme-primary: #00a859;
+    --theme-primary-dark: #008a48;
+    --theme-primary-light: #33b97a;
+    --theme-secondary: #f3fbf6;
+    --theme-accent: #fbbf24;
+    --theme-accent-dark: #f59e0b;
+    --theme-dark: #1e293b;
+    --theme-dark-light: #475569;
+    --theme-cream: #ffffff;
+    --theme-cream-dark: #f8fafc;
+    --theme-white: #ffffff;
   }
 
   :root.dark {
-    --theme-primary: #4A7A53;
-    --theme-primary-dark: #355E3B;
-    --theme-primary-light: #5B8C65;
-    --theme-secondary: #0D0D0D; /* Very dark background */
-    --theme-accent: #E5B124;
-    --theme-accent-dark: #D4A017;
-    --theme-dark: #F8F5EE; /* Text becomes light */
-    --theme-dark-light: #CCCCCC;
-    --theme-cream: #1A1A1A; /* Cards/Images backgrounds become dark */
-    --theme-cream-dark: #262626;
-    --theme-white: #141414; /* White cards become dark grey */
+    --theme-primary: #00a859;
+    --theme-primary-dark: #008a48;
+    --theme-primary-light: #33b97a;
+    --theme-secondary: #0f172a;
+    --theme-accent: #fbbf24;
+    --theme-accent-dark: #f59e0b;
+    --theme-dark: #f8fafc;
+    --theme-dark-light: #94a3b8;
+    --theme-cream: #1e293b;
+    --theme-cream-dark: #334155;
+    --theme-white: #0f172a;
   }
 }
 
@@ -68,6 +68,7 @@ body {
   color: var(--theme-dark);
   background-color: var(--theme-secondary);
   overflow-x: hidden;
+  line-height: 1.5;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -91,6 +92,134 @@ button {
   border: none;
   background: none;
   font-family: inherit;
+}
+
+@layer components {
+  .aq-container {
+    width: min(100%, 80rem);
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .home-section {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(4.5rem, 8vw, 8rem);
+  }
+
+  .home-section--hero {
+    min-height: calc(100vh - 5rem);
+    padding-top: clamp(6.5rem, 12vw, 9rem);
+  }
+
+  .home-section__header {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 1.25rem;
+    margin: 0 auto clamp(2.5rem, 6vw, 5rem);
+    max-width: 48rem;
+    text-align: center;
+  }
+
+  .home-section__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: fit-content;
+    margin-inline: auto;
+    padding: 0.7rem 1.15rem;
+    border: 1px solid rgb(0 168 89 / 0.18);
+    border-radius: 999px;
+    background: rgb(0 168 89 / 0.06);
+    box-shadow: 0 12px 30px rgb(15 23 42 / 0.04);
+  }
+
+  .home-section__title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.35rem, 6vw, 4.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    color: var(--theme-dark);
+  }
+
+  .home-section__copy {
+    max-width: 42rem;
+    margin-inline: auto;
+    font-size: clamp(1rem, 1.7vw, 1.125rem);
+    line-height: 1.8;
+    color: rgb(71 85 105 / 0.92);
+  }
+
+  .home-grid-2 {
+    display: grid;
+    align-items: center;
+    gap: clamp(2rem, 5vw, 4.5rem);
+  }
+
+  .home-card {
+    border: 1px solid rgb(255 255 255 / 0.85);
+    border-radius: clamp(1.5rem, 3vw, 2rem);
+    background: rgb(255 255 255 / 0.62);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 18px 40px rgb(15 23 42 / 0.05);
+  }
+
+  .home-card--dark {
+    background: rgb(15 23 42 / 0.78);
+    border-color: rgb(255 255 255 / 0.1);
+    box-shadow: 0 18px 40px rgb(2 6 23 / 0.24);
+    color: white;
+  }
+
+  .home-button-primary,
+  .home-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    min-height: 3.5rem;
+    padding-inline: 1.5rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .home-button-primary {
+    background: var(--theme-dark);
+    color: white;
+    border: 1px solid rgb(71 85 105 / 0.18);
+    box-shadow: 0 16px 28px rgb(15 23 42 / 0.14);
+  }
+
+  .home-button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 38px rgb(15 23 42 / 0.2);
+  }
+
+  .home-button-secondary {
+    border: 1px solid rgb(148 163 184 / 0.24);
+    background: rgb(255 255 255 / 0.58);
+    color: var(--theme-dark);
+  }
+
+  .home-button-secondary:hover {
+    transform: translateY(-2px);
+    border-color: rgb(0 168 89 / 0.2);
+    background: rgb(255 255 255 / 0.9);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-grid-2 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 
 /* ─── Utility Classes ──────────────────────────────────── */

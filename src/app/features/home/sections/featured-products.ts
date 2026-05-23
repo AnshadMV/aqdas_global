@@ -1,7 +1,7 @@
-import { Component, ChangeDetectionStrategy, afterNextRender, signal, ElementRef, viewChild, inject, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, afterNextRender, signal, ElementRef, viewChild, inject, OnInit, DoCheck } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { NgOptimizedImage } from '@angular/common';
 import { Store } from '@ngrx/store';
+import { NgOptimizedImage } from '@angular/common';
 import { ProductActions } from '../../../store/product/product.actions';
 import { CartActions } from '../../../store/cart/cart.actions';
 import { selectAllProducts, selectProductLoading } from '../../../store/product/product.selectors';
@@ -16,85 +16,172 @@ gsap.registerPlugin(ScrollTrigger);
   selector: 'app-featured-products',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, NgOptimizedImage],
-  host: { 'class': 'block' },
+  host: { class: 'block' },
   styles: `
-    .product-card { transition: all 0.4s cubic-bezier(0.23,1,0.32,1); }
-    .product-card:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgba(53,94,59,0.15); }
-    .product-card:hover .product-img { transform: scale(1.08); }
-    .product-img { transition: transform 0.6s cubic-bezier(0.23,1,0.32,1); }
-    .add-btn { transform: translateY(10px); opacity: 0; transition: all 0.3s ease; }
-    .product-card:hover .add-btn { transform: translateY(0); opacity: 1; }
+    .bg-grid {
+      background-size: 50px 50px;
+      background-image: linear-gradient(to right, rgba(0, 168, 89, 0.04) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0, 168, 89, 0.04) 1px, transparent 1px);
+    }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+    .mask-image-gradient {
+      mask-image: radial-gradient(circle at center, black, transparent 85%);
+      -webkit-mask-image: radial-gradient(circle at center, black, transparent 85%);
+    }
+    .product-card {
+      border-radius: 2rem;
+      transition: transform 0.35s ease, box-shadow 0.35s ease, background-color 0.35s ease, border-color 0.35s ease;
+    }
+    .product-card:hover {
+      transform: translateY(-6px);
+    }
+    .product-card--light {
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.05);
+    }
+    .product-card--dark {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 18px 36px rgba(2, 6, 23, 0.24);
+      color: white;
+    }
+    .btn-add {
+      transition: transform 0.25s ease, background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    }
+    .btn-add:hover {
+      transform: scale(1.05);
+    }
   `,
   template: `
-    <section class="py-24 bg-secondary">
-      <div class="max-w-7xl mx-auto px-6 lg:px-8">
-        <div class="text-center mb-16">
-          <span class="inline-block font-body text-accent text-sm font-semibold tracking-widest uppercase mb-4">Our Collection</span>
-          <h2 class="font-heading text-4xl sm:text-5xl font-bold text-dark mb-4">Featured Products</h2>
-          <p class="font-body text-dark/50 text-lg max-w-2xl mx-auto">Discover our handpicked selection of premium Kerala spices, sourced directly from organic farms.</p>
+    <section class="home-section relative bg-[#F1F5F9]">
+      <div class="absolute inset-0 bg-noise opacity-[0.035] pointer-events-none mix-blend-overlay"></div>
+      <div class="absolute inset-0 bg-grid pointer-events-none mask-image-gradient opacity-60"></div>
+      <div class="absolute top-[-10%] right-[10%] h-[55%] w-[55%] rounded-full bg-accent/10 blur-[160px] pointer-events-none mix-blend-multiply"></div>
+      <div class="absolute bottom-[-10%] left-[10%] h-[55%] w-[55%] rounded-full bg-primary/10 blur-[160px] pointer-events-none mix-blend-multiply"></div>
+
+      <div class="aq-container relative z-10">
+        <div class="home-section__header">
+          <div class="home-section__eyebrow">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+            </span>
+            <span class="text-xs font-semibold uppercase tracking-[0.15em] text-primary sm:text-sm">Pure Premium Quality</span>
+          </div>
+          <h2 class="home-section__title">
+            Featured <span class="relative inline-block mt-2">
+              <span class="relative z-10 bg-gradient-to-r from-primary-dark via-primary to-accent-dark bg-clip-text text-transparent">Best Sellers</span>
+              <svg class="absolute bottom-[-0.25rem] left-0 -z-10 h-3 w-full text-primary/20" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0,10 Q50,20 100,10" fill="currentColor"/></svg>
+            </span>
+          </h2>
+          <p class="home-section__copy">
+            Handpicked, graded, and packed to lock in freshness. Discover a cleaner, more balanced showcase of AQDAS favorites.
+          </p>
         </div>
 
         @if (loading()) {
-          <div class="flex justify-center py-12"><div class="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div></div>
+          <div class="flex justify-center py-20">
+            <div class="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary"></div>
+          </div>
         } @else {
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" #productsGrid>
-            @for (product of products(); track product.id) {
-              <div class="product-card bg-white rounded-3xl overflow-hidden shadow-sm cursor-pointer group">
-                <a [routerLink]="['/shop', product.id]" class="block relative overflow-hidden bg-cream h-64">
-                  <img [ngSrc]="product.imageUrl" [alt]="product.name" class="product-img object-cover" fill />
-                  @if (product.badge) {
-                    <span class="absolute top-4 left-4 bg-accent text-dark text-[10px] font-body font-bold uppercase tracking-wider px-3 py-1 rounded-full">{{ product.badge }}</span>
-                  }
-                </a>
-                <div class="absolute top-4 right-4">
-                  <button class="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white hover:text-red-500 transition-all shadow-sm" aria-label="Add to wishlist">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                  </button>
-                </div>
-                <div class="p-6">
-                  <p class="font-body text-xs text-accent font-semibold uppercase tracking-wider mb-1">{{ product.category }}</p>
-                  <h3 class="font-heading text-lg font-semibold text-dark mb-2 group-hover:text-primary transition-colors">{{ product.name }}</h3>
-                  <p class="font-body text-dark/40 text-sm mb-4 line-clamp-2">{{ product.shortDescription }}</p>
-                  <div class="flex items-center gap-1 mb-3">
-                    @for (star of [1,2,3,4,5]; track star) {
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" [attr.fill]="star <= product.rating ? '#D4A017' : 'none'" [attr.stroke]="star <= product.rating ? '#D4A017' : '#ccc'" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    }
-                    <span class="font-body text-xs text-dark/40 ml-1">({{ product.reviews }})</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div>
-                      <span class="font-heading text-xl font-bold text-primary">₹{{ product.price }}</span>
-                      @if (product.originalPrice > product.price) {
-                        <span class="font-body text-sm text-dark/30 line-through ml-2">₹{{ product.originalPrice }}</span>
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8" #productsGrid>
+            @for (product of displayProducts(); track product.id; let idx = $index) {
+              <div
+                class="product-card group flex cursor-pointer flex-col justify-between p-5 sm:p-6"
+                [class.product-card--light]="idx !== 1 && idx !== 3"
+                [class.product-card--dark]="idx === 1 || idx === 3"
+                [routerLink]="['/shop', product.id]"
+              >
+                <div>
+                  <div class="relative aspect-square overflow-hidden rounded-[1.5rem] border border-white/50 bg-white/70 p-4">
+                    <div class="absolute inset-0 flex items-center justify-center opacity-30">
+                      <div class="h-[78%] w-[78%] rounded-full blur-[25px]" [class.bg-primary]="idx !== 1 && idx !== 3" [class.bg-white]="idx === 1 || idx === 3"></div>
+                    </div>
+                    <div class="relative h-full w-full">
+                      <img [ngSrc]="product.imageUrl" [alt]="product.name" fill class="rounded-[1.25rem] object-cover transition-transform duration-700 ease-out group-hover:scale-105" priority />
+                    </div>
+
+                    <div class="absolute top-4 right-4 left-4 flex items-center justify-between gap-3">
+                      <span class="rounded-lg border border-white/10 bg-[#0f172a]/80 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+                        {{ product.weight || '100g' }}
+                      </span>
+                      @if (product.badge) {
+                        <span class="rounded-lg bg-accent px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-dark">
+                          {{ product.badge }}
+                        </span>
                       }
                     </div>
-                    <button (click)="addToCart($event, product)" class="w-9 h-9 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-white flex items-center justify-center transition-all active:scale-90" [attr.aria-label]="'Add ' + product.name + ' to cart'">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                    </button>
                   </div>
+
+                  <div class="mt-6">
+                    <div class="mb-2 flex items-center gap-1">
+                      <div class="flex text-accent">
+                        @for (star of [1, 2, 3, 4, 5]; track star) {
+                          <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                        }
+                      </div>
+                      <span class="ml-1 text-[10px] font-semibold opacity-60" [class.text-white/60]="idx === 1 || idx === 3" [class.text-dark/60]="idx !== 1 && idx !== 3">
+                        ({{ product.reviews || 24 }})
+                      </span>
+                    </div>
+
+                    <h3 class="font-heading text-xl font-bold tracking-wide sm:text-2xl" [class.text-white]="idx === 1 || idx === 3" [class.text-dark]="idx !== 1 && idx !== 3">
+                      {{ product.name }}
+                    </h3>
+                  </div>
+                </div>
+
+                <div class="mt-8 flex items-center justify-between gap-4 border-t border-slate-200/50 pt-4" [class.border-white/10]="idx === 1 || idx === 3">
+                  <div class="flex flex-col">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.24em] opacity-45" [class.text-white]="idx === 1 || idx === 3" [class.text-dark]="idx !== 1 && idx !== 3">Price</span>
+                    <p class="flex items-baseline gap-1 font-body text-xl font-black" [class.text-white]="idx === 1 || idx === 3" [class.text-primary]="idx !== 1 && idx !== 3">
+                      <span class="text-xs font-semibold">&#8377;</span>{{ product.price }}
+                    </p>
+                  </div>
+
+                  <button
+                    (click)="addToCart($event, product)"
+                    class="btn-add flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-md backdrop-blur-md"
+                    [class.bg-dark]="idx !== 1 && idx !== 3"
+                    [class.text-white]="idx !== 1 && idx !== 3"
+                    [class.border-dark/10]="idx !== 1 && idx !== 3"
+                    [class.bg-white/10]="idx === 1 || idx === 3"
+                    [class.text-white]="idx === 1 || idx === 3"
+                    [class.border-white/15]="idx === 1 || idx === 3"
+                    aria-label="Add to cart"
+                  >
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                  </button>
                 </div>
               </div>
             }
           </div>
-        }
 
-        <div class="text-center mt-16">
-          <a routerLink="/shop" class="inline-flex items-center gap-2 border-2 border-primary/20 hover:border-primary hover:bg-primary hover:text-white text-primary font-body font-semibold px-10 py-4 rounded-full transition-all duration-300 active:scale-[0.98]">
-            View All Products
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          </a>
-        </div>
+          <div class="mt-14 text-center">
+            <a routerLink="/shop" class="home-button-secondary group mx-auto gap-4 bg-white/90 px-8">
+              <span class="text-base font-bold tracking-wide">View Full Catalog</span>
+              <div class="flex h-8 w-8 items-center justify-center rounded-full bg-dark/5 transition-all duration-300 group-hover:bg-dark group-hover:text-white">
+                <svg class="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+              </div>
+            </a>
+          </div>
+        }
       </div>
     </section>
   `,
 })
-export class FeaturedProductsComponent implements OnInit {
+export class FeaturedProductsComponent implements OnInit, DoCheck {
   private readonly store = inject(Store);
   readonly productsGrid = viewChild<ElementRef>('productsGrid');
 
   readonly products = this.store.selectSignal(selectAllProducts);
   readonly loading = this.store.selectSignal(selectProductLoading);
   private readonly user = this.store.selectSignal(selectCurrentUser);
+
+  readonly displayProducts = signal<Product[]>([]);
 
   constructor() {
     afterNextRender(() => this.animateProducts());
@@ -104,26 +191,40 @@ export class FeaturedProductsComponent implements OnInit {
     this.store.dispatch(ProductActions.loadProducts());
   }
 
+  ngDoCheck(): void {
+    const all = this.products();
+    if (all.length && this.displayProducts().length === 0) {
+      this.displayProducts.set(all.slice(0, 4));
+    }
+  }
+
   addToCart(event: Event, product: Product): void {
     event.stopPropagation();
     event.preventDefault();
-    const item: CartItem = { productId: product.id, name: product.name, imageUrl: product.imageUrl, price: product.price, quantity: 1, weight: product.weight };
+    const item: CartItem = {
+      productId: product.id,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      price: product.price,
+      quantity: 1,
+      weight: product.weight,
+    };
     this.store.dispatch(CartActions.addToCart({ item, uid: this.user()?.uid ?? null }));
   }
 
   private animateProducts(): void {
     const grid = this.productsGrid()?.nativeElement;
     if (grid) {
-      gsap.from(grid.children, { 
-        opacity: 0, 
-        y: 60, 
-        duration: 0.7, 
-        stagger: 0.1, 
-        ease: 'power2.out',
+      gsap.from(grid.children, {
+        opacity: 0,
+        y: 50,
+        duration: 1.1,
+        stagger: 0.12,
+        ease: 'power3.out',
         scrollTrigger: {
           trigger: grid,
           start: 'top 85%',
-        }
+        },
       });
     }
   }

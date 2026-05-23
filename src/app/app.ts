@@ -21,7 +21,7 @@ import { ChildrenOutletContexts } from '@angular/router';
     <app-toast />
     <app-navbar />
     <main [@routeAnimations]="getRouteAnimationData()">
-      <router-outlet />
+     <router-outlet />
     </main>
     <app-footer />
     <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp"
