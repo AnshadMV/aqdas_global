@@ -26,7 +26,7 @@ export class AuthService {
   login(email: string, password: string): Observable<User> {
     return from(signInWithEmailAndPassword(auth, email, password)).pipe(
       switchMap((credential) => this.getUserProfile(credential.user.uid).pipe(
-        map((profile) => this.mapFirebaseUser(credential.user, profile?.role))
+        map((profile) => this.mapFirebaseUser(credential.user, profile?.role, profile))
       ))
     );
   }
@@ -55,7 +55,7 @@ export class AuthService {
       switchMap((credential) => this.getUserProfile(credential.user.uid).pipe(
         switchMap((profile) => {
           if (profile) {
-            return of(this.mapFirebaseUser(credential.user, profile.role));
+            return of(this.mapFirebaseUser(credential.user, profile.role, profile));
           } else {
             // Create profile for new Google user
             const email = credential.user.email ?? '';
@@ -81,7 +81,7 @@ export class AuthService {
         if (firebaseUser) {
           this.getUserProfile(firebaseUser.uid).subscribe({
             next: (profile) => {
-              subscriber.next(this.mapFirebaseUser(firebaseUser, profile?.role));
+              subscriber.next(this.mapFirebaseUser(firebaseUser, profile?.role, profile));
               subscriber.complete();
             },
             error: () => {
@@ -105,6 +105,30 @@ export class AuthService {
     );
   }
 
+  /** Update user profile in Firestore and Firebase Auth */
+  updateUserProfile(uid: string, data: { displayName?: string; photoURL?: string; phoneNumber?: string; shippingAddress?: any }): Observable<void> {
+    const userRef = doc(firestore, 'users', uid);
+    const promises: Promise<any>[] = [];
+    
+    // Update Firebase Auth details if provided
+    if (auth.currentUser && (data.displayName !== undefined || data.photoURL !== undefined)) {
+      promises.push(updateProfile(auth.currentUser, {
+        displayName: data.displayName ?? auth.currentUser.displayName,
+        photoURL: data.photoURL ?? auth.currentUser.photoURL
+      }));
+    }
+    
+    // Update Firestore user document
+    promises.push(setDoc(userRef, {
+      ...data,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }));
+    
+    return from(Promise.all(promises)).pipe(
+      map(() => void 0)
+    );
+  }
+
   /** Create user profile in Firestore */
   private async createUserProfile(uid: string, data: any): Promise<void> {
     await setDoc(doc(firestore, 'users', uid), {
@@ -120,14 +144,16 @@ export class AuthService {
     displayName: string | null;
     photoURL: string | null;
     emailVerified: boolean;
-  }, role?: 'admin' | 'user'): User {
+  }, role?: 'admin' | 'user', profileData?: any): User {
     return {
       uid: fbUser.uid,
       email: fbUser.email ?? '',
       displayName: fbUser.displayName,
       photoURL: fbUser.photoURL,
       emailVerified: fbUser.emailVerified,
-      role: role
+      role: role,
+      phoneNumber: profileData?.phoneNumber,
+      shippingAddress: profileData?.shippingAddress
     };
   }
 }

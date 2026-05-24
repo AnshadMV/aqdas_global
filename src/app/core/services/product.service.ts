@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, from } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
   collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
@@ -14,30 +14,48 @@ import type { Product, Category, Testimonial, SiteConfig } from '../../shared/mo
  */
 @Injectable({ providedIn: 'root' })
 export class ProductService {
+  private cachedProducts: Product[] | null = null;
 
-  /** Fetch all active products */
+  /** Fetch all products (cached in memory for optimal Firebase read count) */
   getAll(): Observable<Product[]> {
+    if (this.cachedProducts) {
+      return of(this.cachedProducts);
+    }
     return from(getDocs(collection(firestore, 'products'))).pipe(
-      map((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product).filter((p) => p.isActive).sort((a, b) => a.name.localeCompare(b.name)))
+      map((snap) => {
+        const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product).sort((a, b) => a.name.localeCompare(b.name));
+        this.cachedProducts = products;
+        return products;
+      })
     );
   }
 
   /** Fetch featured products */
   getFeatured(): Observable<Product[]> {
-    return from(getDocs(collection(firestore, 'products'))).pipe(
-      map((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product).filter((p) => p.isFeatured && p.isActive))
+    if (this.cachedProducts) {
+      return of(this.cachedProducts.filter((p) => p.isFeatured && p.isActive));
+    }
+    return this.getAll().pipe(
+      map((products) => products.filter((p) => p.isFeatured && p.isActive))
     );
   }
 
   /** Fetch by category */
   getByCategory(category: string): Observable<Product[]> {
-    return from(getDocs(collection(firestore, 'products'))).pipe(
-      map((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product).filter((p) => p.category === category && p.isActive))
+    if (this.cachedProducts) {
+      return of(this.cachedProducts.filter((p) => p.category === category && p.isActive));
+    }
+    return this.getAll().pipe(
+      map((products) => products.filter((p) => p.category === category && p.isActive))
     );
   }
 
   /** Fetch a single product by ID */
   getById(productId: string): Observable<Product> {
+    if (this.cachedProducts) {
+      const found = this.cachedProducts.find((p) => p.id === productId);
+      if (found) return of(found);
+    }
     return from(getDoc(doc(firestore, 'products', productId))).pipe(
       map((snap) => {
         if (!snap.exists()) throw new Error(`Product ${productId} not found`);
@@ -48,6 +66,7 @@ export class ProductService {
 
   /** Add a new product */
   add(product: Omit<Product, 'id'>): Observable<Product> {
+    this.cachedProducts = null; // Invalidate cache
     return from(addDoc(collection(firestore, 'products'), product)).pipe(
       map((ref) => ({ ...product, id: ref.id }) as Product)
     );
@@ -55,12 +74,14 @@ export class ProductService {
 
   /** Update product */
   update(product: Product): Observable<Product> {
+    this.cachedProducts = null; // Invalidate cache
     const { id, ...data } = product;
     return from(updateDoc(doc(firestore, 'products', id), data)).pipe(map(() => product));
   }
 
   /** Delete product */
   delete(productId: string): Observable<void> {
+    this.cachedProducts = null; // Invalidate cache
     return from(deleteDoc(doc(firestore, 'products', productId)));
   }
 

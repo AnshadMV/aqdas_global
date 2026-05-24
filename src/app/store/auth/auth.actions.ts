@@ -36,6 +36,11 @@ export const AuthActions = createActionGroup({
     'Check Auth': emptyProps(),
     'Auth State Changed': props<{ user: User | null }>(),
 
+    /** Update Profile details */
+    'Update Profile': props<{ displayName?: string; photoURL?: string; phoneNumber?: string; shippingAddress?: any }>(),
+    'Update Profile Success': props<{ user: User }>(),
+    'Update Profile Failure': props<{ error: AuthError }>(),
+
     /** Clear auth errors */
     'Clear Auth Error': emptyProps(),
   },

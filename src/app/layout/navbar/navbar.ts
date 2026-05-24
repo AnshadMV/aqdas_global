@@ -3,229 +3,583 @@ import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { isPlatformBrowser, NgOptimizedImage } from '@angular/common';
 import { afterNextRender, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Store } from '@ngrx/store';
-import { selectAllProducts } from '../../store/product/product.selectors';
+import { selectActiveProducts } from '../../store/product/product.selectors';
 import { selectCartCount } from '../../store/cart/cart.selectors';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { AuthActions } from '../../store/auth/auth.actions';
 import { selectWishlistCount } from '../../store/wishlist/wishlist.selectors';
+import { SettingsService } from '../../core/services/settings.service';
 
 @Component({
   selector: 'app-navbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, RouterLinkActive, FormsModule, NgOptimizedImage],
-  host: { 'class': 'block' },
+  host: { 'class': 'block', '(document:click)': 'onDocumentClick($event)' },
   styles: `
-    .nav-link::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #D4A017; transition: width 0.3s ease; }
+    /* ─── Base & Container ─── */
+    .aq-navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      background: transparent;
+    }
+
+    .aq-navbar.scrolled {
+      background: color-mix(in srgb, var(--theme-cream) 85%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px -8px color-mix(in srgb, var(--theme-dark) 6%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
+    }
+
+    .nav-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+    @media (min-width: 640px) { .nav-container { padding: 0 2rem; } }
+    @media (min-width: 1024px) { .nav-container { padding: 0 2.5rem; } }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 5rem;
+    }
+
+    /* ─── Logo ─── */
+    .logo-link { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+    .logo-img { width: 7.5rem; height: 7.5rem; object-fit: contain; }
+    .logo-text { font-size: 1.35rem; font-weight: 800; color: var(--theme-dark); letter-spacing: -0.02em; }
+    .logo-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--theme-primary); opacity: 0.9; margin-top: 2px; }
+
+    /* ─── Desktop Links ─── */
+    .desktop-nav { display: none; align-items: center; gap: 2.5rem; }
+    @media (min-width: 1024px) { .desktop-nav { display: flex; } }
+
+    .nav-link {
+      position: relative;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--theme-dark-light);
+      text-decoration: none;
+      padding: 0.5rem 0;
+      transition: color 0.3s ease;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0;
+      width: 0; height: 2px;
+      background: linear-gradient(90deg, var(--theme-primary), var(--theme-accent-dark));
+      border-radius: 2px;
+      transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nav-link:hover, .nav-link.active { color: var(--theme-primary); }
     .nav-link:hover::after, .nav-link.active::after { width: 100%; }
-    .hamburger-line { transition: all 0.3s ease; }
-    .menu-open .hamburger-line:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
-    .menu-open .hamburger-line:nth-child(2) { opacity: 0; }
-    .menu-open .hamburger-line:nth-child(3) { transform: rotate(-45deg) translate(7px, -6px); }
-    .search-input { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-    .premium-search-box { transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-    .premium-search-box:focus-within { transform: translateY(-1px); }
-    .animate-float { animation: float 3s ease-in-out infinite; }
-    .animate-slideLeft { animation: slideLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-    .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+
+    /* ─── Action Buttons ─── */
+    .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+    .action-btn {
+      position: relative;
+      width: 2.5rem; height: 2.5rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: var(--theme-dark-light);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .action-btn:hover { background: color-mix(in srgb, var(--theme-primary) 8%, transparent); color: var(--theme-primary); }
+
+    .action-badge {
+      position: absolute;
+      top: 2px; right: 2px;
+      min-width: 1.125rem; height: 1.125rem;
+      padding: 0 0.3rem;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 800;
+      border-radius: 100px;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid var(--theme-cream);
+      line-height: 1;
+    }
+    .aq-navbar.scrolled .action-badge { border-color: var(--theme-cream); }
+    .action-badge.cart { background: var(--theme-primary); }
+
+    /* ─── User Avatar Button ─── */
+    .user-avatar-btn {
+      width: 2.5rem; height: 2.5rem;
+      border-radius: 50%;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 10%, transparent), color-mix(in srgb, var(--theme-primary-dark) 15%, transparent));
+      border: 2px solid color-mix(in srgb, var(--theme-primary) 20%, transparent);
+      padding: 2px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .user-avatar-btn:hover { border-color: var(--theme-primary); transform: scale(1.05); box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--theme-primary) 20%, transparent); }
+    .user-avatar-btn img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .user-avatar-initial { font-size: 0.9rem; font-weight: 800; color: var(--theme-primary); }
+
+    /* ─── User Dropdown Menu (Premium Focus) ─── */
+    .user-menu-wrap { position: relative; }
+
+    .user-dropdown {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      width: 288px;
+      background: color-mix(in srgb, var(--theme-cream) 98%, transparent);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
+      border-radius: 20px;
+      box-shadow: 
+        0 24px 48px -12px color-mix(in srgb, var(--theme-dark) 15%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--theme-dark) 2%, transparent);
+      padding: 8px;
+      z-index: 60;
+      opacity: 0;
+      transform: translateY(-12px) scale(0.96);
+      pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+    }
+
+    .user-dropdown.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .user-dropdown::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme-primary) 30%, transparent), transparent);
+    }
+
+    .user-info-header {
+      padding: 16px 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--theme-dark) 6%, transparent);
+      margin-bottom: 6px;
+    }
+    .user-info-name { font-size: 0.95rem; font-weight: 700; color: var(--theme-dark); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-info-email { font-size: 0.75rem; color: var(--theme-dark-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .dropdown-nav { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+
+    .dropdown-link, .dropdown-logout {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--theme-dark-light);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .dropdown-link:hover { background: color-mix(in srgb, var(--theme-primary) 6%, transparent); color: var(--theme-primary); }
+
+    .dropdown-icon-wrap {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--theme-dark) 4%, transparent);
+      color: var(--theme-dark-light);
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+    .dropdown-link:hover .dropdown-icon-wrap { background: color-mix(in srgb, var(--theme-primary) 12%, transparent); color: var(--theme-primary); }
+
+    .dropdown-divider { height: 1px; background: color-mix(in srgb, var(--theme-dark) 6%, transparent); margin: 4px 8px; }
+
+    .dropdown-logout { color: #ef4444; }
+    .dropdown-logout:hover { background: color-mix(in srgb, #ef4444 6%, transparent); color: #ef4444; }
+    .dropdown-logout .dropdown-icon-wrap { background: color-mix(in srgb, #ef4444 8%, transparent); color: #ef4444; }
+    .dropdown-logout:hover .dropdown-icon-wrap { background: color-mix(in srgb, #ef4444 15%, transparent); }
+
+    /* ─── Mobile Visibility ─── */
+    .mobile-hidden { display: flex; }
+    @media (max-width: 767px) { .mobile-hidden { display: none !important; } }
+
+    /* ─── Search Box ─── */
+    .search-wrap { position: relative; display: none; }
+    @media (min-width: 768px) { .search-wrap { display: block; } }
+
+    .search-expanded {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 20rem;
+      height: 3rem;
+      background: color-mix(in srgb, var(--theme-white) 90%, transparent);
+      backdrop-filter: blur(12px);
+      border: 1px solid color-mix(in srgb, var(--theme-primary) 20%, transparent);
+      border-radius: 100px;
+      padding: 0 0.5rem 0 1.25rem;
+      box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--theme-primary) 10%, transparent);
+      animation: slideLeft 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
     @keyframes slideLeft { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .search-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--theme-dark);
+      padding: 0 0.75rem;
+    }
+    .search-input::placeholder { color: var(--theme-dark-light); }
+
+    .search-clear {
+      width: 2rem; height: 2rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: color-mix(in srgb, #ef4444 10%, transparent);
+      color: #ef4444;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .search-clear:hover { background: #ef4444; color: #fff; }
+
+    /* Search Dropdown */
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      width: 380px;
+      background: color-mix(in srgb, var(--theme-cream) 98%, transparent);
+      backdrop-filter: blur(24px);
+      border: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
+      border-radius: 20px;
+      box-shadow: 0 24px 48px -12px color-mix(in srgb, var(--theme-dark) 15%, transparent);
+      max-height: 420px;
+      overflow-y: auto;
+      z-index: 60;
+      animation: slideDown 0.3s ease-out;
+    }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .search-dropdown-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid color-mix(in srgb, var(--theme-dark) 6%, transparent);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .search-dropdown-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--theme-dark-light); }
+    .search-dropdown-count { font-size: 0.65rem; font-weight: 700; color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 10%, transparent); padding: 4px 8px; border-radius: 100px; }
+
+    .search-suggestion {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .search-suggestion:hover { background: color-mix(in srgb, var(--theme-primary) 4%, transparent); }
+
+    .suggestion-img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--theme-cream-dark); flex-shrink: 0; }
+    .suggestion-info { flex: 1; min-width: 0; }
+    .suggestion-name { font-size: 0.875rem; font-weight: 600; color: var(--theme-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggestion-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .suggestion-price { font-size: 0.8rem; font-weight: 700; color: var(--theme-primary); }
+    .suggestion-dot { width: 3px; height: 3px; border-radius: 50%; background: color-mix(in srgb, var(--theme-dark) 20%, transparent); }
+    .suggestion-stock { font-size: 0.65rem; font-weight: 600; color: var(--theme-dark-light); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .search-empty { padding: 40px 24px; text-align: center; }
+    .search-empty-icon { width: 56px; height: 56px; background: color-mix(in srgb, var(--theme-dark) 4%, transparent); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--theme-dark-light); }
+    .search-empty-text { font-size: 0.9rem; font-weight: 600; color: var(--theme-dark-light); margin-bottom: 8px; }
+    .search-empty-btn { background: none; border: none; color: var(--theme-primary); font-size: 0.8rem; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+    .search-empty-btn:hover { text-decoration: underline; }
+
+    /* ─── Mobile Menu ─── */
+    .mobile-toggle { display: flex; }
+    @media (min-width: 1024px) { .mobile-toggle { display: none; } }
+
+    .hamburger { width: 1.5rem; height: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .hamburger-line { width: 100%; height: 2px; background: var(--theme-dark); border-radius: 2px; transition: all 0.3s ease; transform-origin: center; }
+    .menu-open .hamburger-line:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+    .menu-open .hamburger-line:nth-child(2) { opacity: 0; }
+    .menu-open .hamburger-line:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
+
+    .mobile-menu {
+      position: absolute;
+      top: 100%; left: 0; right: 0;
+      background: color-mix(in srgb, var(--theme-cream) 98%, transparent);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid color-mix(in srgb, var(--theme-dark) 6%, transparent);
+      box-shadow: 0 16px 32px -8px color-mix(in srgb, var(--theme-dark) 10%, transparent);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: slideDown 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mobile-link {
+      display: block;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--theme-dark-light);
+      text-decoration: none;
+      border-radius: 14px;
+      transition: all 0.2s;
+    }
+    .mobile-link:hover, .mobile-link.active { background: color-mix(in srgb, var(--theme-primary) 6%, transparent); color: var(--theme-primary); }
+
+    .nav-spacer { height: 5rem; }
   `,
   template: `
-    <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-500" [class]="scrolled() ? 'bg-white/90 backdrop-blur-xl shadow-lg shadow-primary/5' : 'bg-transparent'">
-      <div class="w-full px-8 lg:px-16">
-        <div class="flex items-center justify-between h-20 p-16">
-          <a routerLink="/" class="flex items-center gap-2 group" aria-label="AQDAS Home">
-            <img ngSrc="assets/logo.png" alt="AQDAS Logo" width="50" height="50" priority class="w-20 h-20 object-contain">
-            <span class="text-accent text-xs font-body font-medium tracking-widest uppercase opacity-70">Spices</span>
+    <nav class="aq-navbar" [class.scrolled]="scrolled()">
+      <div class="nav-container">
+        <div class="nav-inner">
+          
+          <!-- Logo -->
+          <a routerLink="/" class="logo-link" aria-label="AQDAS Home">
+            <img ngSrc="assets/logo.png" alt="AQDAS Logo" width="40" height="40" priority class="logo-img" />
+            <div style="display: flex; flex-direction: column; line-height: 1;">
+              <span class="logo-text">AQDAS</span>
+              <span class="logo-tag">Global</span>
+            </div>
           </a>
 
-          <div class="hidden lg:flex items-center gap-8">
+          <!-- Desktop Navigation -->
+          <div class="desktop-nav">
             @for (link of navLinks; track link.label) {
-              <a [routerLink]="link.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: link.exact }" class="nav-link relative text-dark/70 hover:text-primary transition-colors font-body text-sm font-medium tracking-wide">
+              <a [routerLink]="link.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: link.exact }" class="nav-link">
                 {{ link.label }}
               </a>
             }
           </div>
 
-          <div class="flex items-center gap-3 pl-16">
-            <!-- Premium SaaS Search -->
-            <div class="relative hidden md:block mr-2 premium-search-box group" (focusout)="onSearchBlur($event)">
-              <div class="relative flex items-center">
-                
-                @if (!isSearchExpanded()) {
-                  <button (click)="toggleSearch()" class="p-2.5 rounded-full hover:bg-primary/5 transition-all duration-300 text-dark/60 hover:text-primary animate-fadeIn" aria-label="Open search">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  </button>
-                } @else {
-                  <!-- Advanced Glow -->
-                  <div class="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/30 to-secondary/30 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700"></div>
+          <!-- Action Buttons -->
+          <div class="nav-actions">
+            
+            <!-- Search -->
+            <div class="search-wrap" (focusout)="onSearchBlur($event)">
+              @if (!isSearchExpanded()) {
+                <button (click)="toggleSearch()" class="action-btn" aria-label="Open search">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+              } @else {
+                <div class="search-expanded">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--theme-dark-light); flex-shrink: 0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input 
+                    #searchInput
+                    type="text" 
+                    [ngModel]="searchQuery()"
+                    (ngModelChange)="searchQuery.set($event)"
+                    (focus)="searchFocused.set(true)"
+                    placeholder="Search premium collections..." 
+                    class="search-input"
+                  />
+                  @if (searchQuery().length > 0) {
+                    <button (click)="searchQuery.set(''); closeSearch()" class="search-clear" aria-label="Clear">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  }
+                </div>
 
-                  <!-- Input Container -->
-                  <div class="relative z-10 flex items-center w-72 lg:w-96 h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl overflow-hidden transition-all duration-500 group-focus-within:bg-white group-focus-within:border-primary/40 group-focus-within:shadow-[0_20px_50px_rgba(0,0,0,0.12)] animate-slideLeft">
-                    
-                    <div class="w-16 h-full flex items-center justify-center flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white/40 group-focus-within:text-primary transition-colors"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <!-- Search Dropdown -->
+                @if (isSearchExpanded() && searchFocused() && searchQuery().length >= 2) {
+                  <div class="search-dropdown">
+                    <div class="search-dropdown-header">
+                      <span class="search-dropdown-label">Available in Shop</span>
+                      <span class="search-dropdown-count">{{ suggestions().length }} Results</span>
                     </div>
-
-                    <input 
-                      #searchInput
-                      type="text" 
-                      [ngModel]="searchQuery()"
-                      (ngModelChange)="searchQuery.set($event)"
-                      (focus)="searchFocused.set(true)"
-                      placeholder="Search premium collections..." 
-                      class="search-input flex-1 h-full bg-transparent outline-none text-white group-focus-within:text-dark placeholder:text-white/30 group-focus-within:placeholder:text-dark/30 font-body text-sm font-medium tracking-wide transition-all"
-                    />
-
-                    <!-- Clear Button -->
-                    @if (searchQuery().length > 0) {
-                      <button (click)="searchQuery.set(''); closeSearch()" class="w-14 h-full flex items-center justify-center flex-shrink-0 text-red-500 hover:text-red-600 ransition-colors" aria-label="Clear">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                      </button>
+                    
+                    @if (suggestions().length > 0) {
+                      @for (product of suggestions(); track product.id) {
+                        <a [routerLink]="['/shop', product.id]" (click)="closeSearch()" class="search-suggestion">
+                          <img [src]="product.imageUrl" [alt]="product.name" class="suggestion-img" />
+                          <div class="suggestion-info">
+                            <p class="suggestion-name">{{ product.name }}</p>
+                            <div class="suggestion-meta">
+                              <span class="suggestion-price">₹{{ product.price }}</span>
+                              <span class="suggestion-dot"></span>
+                              <span class="suggestion-stock">In Stock</span>
+                            </div>
+                          </div>
+                        </a>
+                      }
+                    } @else {
+                      <div class="search-empty">
+                        <div class="search-empty-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                        <p class="search-empty-text">Nothing found for "{{ searchQuery() }}"</p>
+                        <button (click)="searchQuery.set('')" class="search-empty-btn">Clear Search</button>
+                      </div>
                     }
                   </div>
                 }
-              </div>
-              
-              <!-- Refined Dropdown -->
-              @if (isSearchExpanded() && searchFocused() && searchQuery().length >= 2) {
-                <div class="absolute top-full left-0 right-0 w-fullmt-5 bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_40px_100px_rgba(0,0,0,0.15)] border border-white/60 overflow-hidden z-50 max-h-[550px] overflow-y-auto animate-slideDown">
-                  <div class="px-8 py-5 border-b border-dark/5 dark:border-white/5 bg-secondary/5 dark:bg-white/5 flex justify-between items-center">
-                    <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-dark/40 dark:text-white/50">Available in Shop</span>
-                    <span class="text-[10px] font-bold text-primary px-2 py-1 bg-primary/10 rounded-lg">{{ suggestions().length }} Results</span>
-                  </div>
-
-                  <div class="py-3">
-                    @if (suggestions().length > 0) {
-                    @for (product of suggestions(); track product.id) {
-                      <a [routerLink]="['/shop', product.id]" (click)="closeSearch()" class="group/item flex items-center gap-5 p-4 mx-4 my-2 rounded-2xl hover:bg-secondary/10 dark:hover:bg-white/5 transition-all">
-                        <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-cream flex-shrink-0 shadow-sm group-hover/item:shadow-md transition-all duration-500 group-hover/item:scale-105">
-                          <img [src]="product.imageUrl" [alt]="product.name" class="w-full h-full object-cover" />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <p class="font-body text-base font-bold text-primary truncate group-hover/item:text-primary transition-colors">{{ product.name }}</p>
-                          <div class="flex items-center gap-3 mt-1.5">
-                             <p class="font-body text-sm font-bold text-primary">₹{{ product.price }}</p>
-                             <div class="w-1 h-1 rounded-full bg-dark/10 dark:bg-white/20"></div>
-                             <span class="text-[10px] font-bold text-dark/40 dark:text-white/40 uppercase tracking-widest group-hover/item:text-primary transition-colors">In Stock</span>
-                          </div>
-                        </div>
-                        <div class="w-10 h-10 rounded-xl bg-white dark:bg-white/10 shadow-sm flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-all -translate-x-4 group-hover/item:translate-x-0">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-primary"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
-                        </div>
-                      </a>
-                    }
-                  } @else {
-                    <div class="p-16 text-center">
-                      <div class="w-20 h-20 bg-secondary/20 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
-                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-dark/20 dark:text-white/20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                      </div>
-                      <p class="font-body text-base font-semibold text-slate-800 dark:text-white/60 italic">Nothing found for "{{ searchQuery() }}"</p>
-                      <button (click)="searchQuery.set('')" class="mt-4 text-primary font-bold text-xs uppercase tracking-widest hover:underline">Clear Search</button>
-                    </div>
-                  }
-                  </div>
-                </div>
               }
             </div>
 
             <!-- Dark Mode Toggle -->
-            <button (click)="toggleDarkMode()" class="relative p-2.5 rounded-full hover:bg-primary/5 transition-colors" aria-label="Toggle dark mode">
+            <button (click)="toggleDarkMode()" class="action-btn" aria-label="Toggle dark mode">
               @if (isDarkMode()) {
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-dark/60 hover:text-accent transition-colors"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
               } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-dark/60 hover:text-dark transition-colors"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
               }
             </button>
 
-            <!-- Wishlist -->
-            <a routerLink="/wishlist" class="relative p-2.5 rounded-full hover:bg-primary/5 transition-colors" aria-label="Wishlist">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-dark/60"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <!-- Wishlist (hidden on mobile) -->
+            <a routerLink="/wishlist" class="action-btn mobile-hidden" aria-label="Wishlist">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
               @if (wishlistCount() > 0) {
-                <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{{ wishlistCount() }}</span>
+                <span class="action-badge">{{ wishlistCount() }}</span>
               }
             </a>
 
-            <!-- Cart -->
-            <a routerLink="/cart" class="relative p-2.5 rounded-full hover:bg-primary/5 transition-colors" aria-label="Shopping cart">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-dark/60"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+            <!-- Cart (hidden on mobile) -->
+            <a routerLink="/cart" class="action-btn mobile-hidden" aria-label="Shopping cart">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
               @if (cartCount() > 0) {
-                <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">{{ cartCount() }}</span>
+                <span class="action-badge cart">{{ cartCount() }}</span>
               }
             </a>
 
-            <!-- User -->
+            <!-- User Menu -->
             @if (user()) {
-              <div class="relative">
-                <button (click)="showUserMenu.set(!showUserMenu())" class="w-9 h-9 rounded-full bg-primary flex items-center justify-center font-body text-sm font-bold" [attr.aria-label]="'User menu for ' + user()!.displayName">
-                  {{ user()!.displayName?.charAt(0)?.toUpperCase() || 'U' }}
+              <div class="user-menu-wrap">
+                <button (click)="showUserMenu.set(!showUserMenu())" class="user-avatar-btn" [attr.aria-label]="'User menu for ' + user()!.displayName">
+                  @if (user()?.photoURL) {
+                    @if (user()!.photoURL!.startsWith('<svg')) {
+                      <div style="width: 100%; height: 100%; color: var(--theme-primary);" [innerHTML]="getSafeSvg(user()!.photoURL!)"></div>
+                    } @else {
+                      <img [src]="user()?.photoURL" alt="Profile" />
+                    }
+                  } @else {
+                    <span class="user-avatar-initial">{{ user()!.displayName?.charAt(0)?.toUpperCase() || user()!.email.charAt(0).toUpperCase() || 'U' }}</span>
+                  }
                 </button>
-                @if (showUserMenu()) {
-                  <div class="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-dark/10 py-2 z-50">
-                    <p class="px-4 py-2 font-body text-xs text-dark/40 truncate">{{ user()!.email }}</p>
-                    <button (click)="logout()" class="w-full text-left px-4 py-2 font-body text-sm text-dark/70 hover:bg-primary/5 hover:text-primary transition-colors">
-                      Sign Out
+
+                <div class="user-dropdown" [class.open]="showUserMenu()">
+                  <div class="user-info-header">
+                    <p class="user-info-name">{{ user()!.displayName || 'User' }}</p>
+                    <p class="user-info-email">{{ user()!.email }}</p>
+                  </div>
+                  
+                  <nav class="dropdown-nav">
+                    <a routerLink="/profile" (click)="showUserMenu.set(false)" class="dropdown-link">
+                      <span class="dropdown-icon-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </span>
+                      <span>My Profile</span>
+                    </a>
+                    <a routerLink="/profile/orders" (click)="showUserMenu.set(false)" class="dropdown-link">
+                      <span class="dropdown-icon-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                      </span>
+                      <span>Track Orders</span>
+                    </a>
+                    <a routerLink="/profile/settings" (click)="showUserMenu.set(false)" class="dropdown-link">
+                      <span class="dropdown-icon-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      </span>
+                      <span>Settings</span>
+                    </a>
+                  </nav>
+
+                  <div class="dropdown-divider"></div>
+
+                  <div class="dropdown-nav" style="padding-top: 4px;">
+                    <button (click)="logout()" class="dropdown-logout">
+                      <span class="dropdown-icon-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      </span>
+                      <span>Sign Out</span>
                     </button>
                   </div>
-                }
+                </div>
               </div>
             } @else {
-              <a routerLink="/login" class="p-2.5 rounded-full hover:bg-primary/5 transition-colors" aria-label="Sign in">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-dark/60"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <a routerLink="/login" class="action-btn" aria-label="Sign in">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </a>
             }
 
-            <button class="lg:hidden p-2 rounded-lg hover:bg-primary/5 transition-colors" [class.menu-open]="mobileMenuOpen()" (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen()" aria-label="Toggle navigation menu">
-              <div class="w-6 h-5 flex flex-col justify-between">
-                <span class="hamburger-line block w-full h-0.5 bg-dark rounded-full"></span>
-                <span class="hamburger-line block w-full h-0.5 bg-dark rounded-full"></span>
-                <span class="hamburger-line block w-full h-0.5 bg-dark rounded-full"></span>
+            <!-- Mobile Toggle -->
+            <button class="mobile-toggle action-btn" [class.menu-open]="mobileMenuOpen()" (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen()" aria-label="Toggle navigation menu">
+              <div class="hamburger">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
               </div>
             </button>
           </div>
         </div>
       </div>
 
+      <!-- Mobile Menu -->
       @if (mobileMenuOpen()) {
-        <div class="lg:hidden glass border-t border-white/20 animate-slideDown">
-          <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col gap-4">
-            @for (link of navLinks; track link.label) {
-              <a [routerLink]="link.path" routerLinkActive="text-primary font-semibold" [routerLinkActiveOptions]="{ exact: link.exact }" class="text-dark/80 hover:text-primary transition-colors font-body text-base py-2 border-b border-dark/5" (click)="closeMobileMenu()">{{ link.label }}</a>
-            }
-          </div>
+        <div class="mobile-menu">
+          @for (link of navLinks; track link.label) {
+            <a [routerLink]="link.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: link.exact }" class="mobile-link" (click)="closeMobileMenu()">
+              {{ link.label }}
+            </a>
+          }
         </div>
       }
     </nav>
-    <div class="h-20"></div>
+    <div class="nav-spacer"></div>
   `,
 })
 export class NavbarComponent {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly store = inject(Store);
   private readonly router = inject(Router);
+  private readonly sanitizer = inject(DomSanitizer);
 
+  getSafeSvg(svg: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(svg);
+  }
+
+  private readonly settingsService = inject(SettingsService);
   readonly scrolled = signal(false);
   readonly mobileMenuOpen = signal(false);
   readonly showUserMenu = signal(false);
-  readonly isDarkMode = signal(false);
-
+  readonly isDarkMode = computed(() => this.settingsService.settings().theme === 'dark');
   readonly searchQuery = signal('');
   readonly searchFocused = signal(false);
   readonly isSearchExpanded = signal(false);
-
+  
   readonly cartCount = this.store.selectSignal(selectCartCount);
   readonly wishlistCount = this.store.selectSignal(selectWishlistCount);
   readonly user = this.store.selectSignal(selectCurrentUser);
-  readonly products = this.store.selectSignal(selectAllProducts);
+  readonly products = this.store.selectSignal(selectActiveProducts);
 
   readonly suggestions = computed(() => {
     const query = this.searchQuery().toLowerCase().trim();
     if (query.length < 2) return [];
     return this.products()
       .filter(p => p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query))
-      .slice(0, 5); // top 5 results
+      .slice(0, 5);
   });
 
   readonly navLinks = [
@@ -238,51 +592,34 @@ export class NavbarComponent {
   constructor() {
     afterNextRender(() => {
       if (isPlatformBrowser(this.platformId)) {
-        // Scroll listener
         window.addEventListener('scroll', () => {
           this.scrolled.set(window.scrollY > 50);
         }, { passive: true });
-
-        // Initialize Dark Mode from localStorage or OS preference
-        const savedTheme = localStorage.getItem('aqdas-theme');
-        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          this.isDarkMode.set(true);
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
       }
     });
   }
 
   toggleDarkMode(): void {
-    const isDark = !this.isDarkMode();
-    this.isDarkMode.set(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('aqdas-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('aqdas-theme', 'light');
-    }
+    const nextTheme = this.isDarkMode() ? 'light' : 'dark';
+    this.settingsService.updateSettings({ theme: nextTheme });
   }
 
   toggleMobileMenu(): void { this.mobileMenuOpen.update((v) => !v); }
   closeMobileMenu(): void { this.mobileMenuOpen.set(false); }
 
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.user-menu-wrap')) {
+      this.showUserMenu.set(false);
+    }
+  }
+
   onSearchBlur(event: FocusEvent): void {
     const relatedTarget = event.relatedTarget as HTMLElement;
-    // Don't close if we're clicking inside the search box or its children
-    if (relatedTarget?.closest('.premium-search-box')) {
-      return;
-    }
-
+    if (relatedTarget?.closest('.search-wrap')) return;
+    
     setTimeout(() => {
-      // Check if focus was regained within the search box (e.g. after toggle)
-      if (document.activeElement?.closest('.premium-search-box')) {
-        return;
-      }
-
+      if (document.activeElement?.closest('.search-wrap')) return;
       this.searchFocused.set(false);
       if (this.searchQuery().length === 0) {
         this.isSearchExpanded.set(false);
@@ -292,7 +629,6 @@ export class NavbarComponent {
 
   toggleSearch(): void {
     this.isSearchExpanded.set(true);
-    // Focus the input after it's rendered
     setTimeout(() => {
       const input = document.querySelector('.search-input') as HTMLInputElement;
       input?.focus();

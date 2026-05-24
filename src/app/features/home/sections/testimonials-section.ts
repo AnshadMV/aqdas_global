@@ -1,9 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit, afterNextRender, ElementRef, viewChild } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit, afterNextRender, ElementRef, viewChild, effect } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { ProductService } from '../../../core/services/product.service';
 import type { Testimonial } from '../../../shared/models';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { HOME_CONTENT } from '../../../../environments/constants';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -13,170 +14,562 @@ gsap.registerPlugin(ScrollTrigger);
   imports: [NgOptimizedImage],
   host: { class: 'block' },
   styles: `
+    /* ─── Section ─── */
+    .testimonials-section {
+      background: var(--theme-cream-dark);
+      position: relative;
+      overflow: hidden;
+    }
+
     .bg-grid {
       background-size: 50px 50px;
-      background-image: linear-gradient(to right, rgba(0, 168, 89, 0.04) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(0, 168, 89, 0.04) 1px, transparent 1px);
+      background-image:
+        linear-gradient(to right, rgba(0,168,89,0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,168,89,0.035) 1px, transparent 1px);
     }
+
     .bg-noise {
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     }
+
     .mask-image-gradient {
       mask-image: radial-gradient(circle at center, black, transparent 85%);
       -webkit-mask-image: radial-gradient(circle at center, black, transparent 85%);
     }
-    .glass-card-premium {
-      background: rgba(255, 255, 255, 0.55);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.88);
-      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.03);
-      transition: transform 0.35s ease, box-shadow 0.35s ease;
+
+    /* ─── Container ─── */
+    .aq-container {
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 4.5rem 1.5rem;
+      position: relative;
+      z-index: 10;
     }
-    .glass-card-premium:hover,
-    .glass-card-premium-dark:hover {
-      transform: translateY(-6px);
+
+    @media (min-width: 640px) { .aq-container { padding: 5.5rem 2rem; } }
+    @media (min-width: 1024px) { .aq-container { padding: 6.5rem 2.5rem; } }
+
+    /* ─── Section Header ─── */
+    .section-header {
+      text-align: center;
+      margin-bottom: 3rem;
     }
-    .glass-card-premium-dark {
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.24);
+
+    @media (min-width: 640px) { .section-header { margin-bottom: 3.5rem; } }
+    @media (min-width: 1024px) { .section-header { margin-bottom: 4rem; } }
+
+    .eyebrow-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,168,89,0.06);
+      border: 1px solid rgba(0,168,89,0.18);
+      border-radius: 40px;
+      padding: 7px 20px;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s, background 0.3s;
+    }
+
+    @media (min-width: 640px) { .eyebrow-badge { margin-bottom: 1.75rem; } }
+    @media (min-width: 1024px) { .eyebrow-badge { margin-bottom: 2rem; } }
+
+    .eyebrow-text {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--theme-primary);
+      text-transform: uppercase;
+    }
+
+    .main-title {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--theme-dark);
+      margin-bottom: 1rem;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-dark), #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .title-underline {
+      position: absolute;
+      bottom: -0.3rem;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, transparent, var(--theme-primary), #f59e0b, transparent);
+    }
+
+    .subtitle {
+      font-size: clamp(13px, 1.5vw, 15px);
+      line-height: 1.7;
+      color: var(--theme-dark-light);
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* ─── Grid ─── */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 768px) {
+      .testimonials-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .testimonials-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.75rem;
+      }
+    }
+
+    /* ─── Cards ─── */
+    .tcard {
+      border-radius: 2rem;
+      transition: transform 0.4s cubic-bezier(0.22,1,0.36,1),
+                  box-shadow 0.4s cubic-bezier(0.22,1,0.36,1);
+      overflow: hidden;
+    }
+
+    .tcard:hover { transform: translateY(-7px); }
+
+    /* Light card */
+    .tcard--light {
+      background: color-mix(in srgb, var(--theme-white) 65%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid color-mix(in srgb, var(--theme-white) 92%, transparent);
+      box-shadow:
+        0 4px 6px -2px rgba(0,0,0,0.04),
+        0 12px 28px -8px rgba(0,0,0,0.07);
+      padding: 1.75rem;
+    }
+
+    @media (min-width: 640px) { .tcard--light { padding: 2rem; } }
+
+    .tcard--light:hover {
+      box-shadow:
+        0 8px 16px -4px rgba(0,0,0,0.06),
+        0 24px 48px -12px rgba(0,168,89,0.1);
+    }
+
+    /* Dark / featured card */
+    .tcard--dark {
+      background: linear-gradient(145deg, #0f172a 0%, #1a2540 55%, #0f1d30 100%);
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow:
+        0 4px 6px -2px rgba(0,0,0,0.18),
+        0 16px 40px -8px rgba(0,0,0,0.32);
+      padding: 1.75rem;
+    }
+
+    @media (min-width: 640px) { .tcard--dark { padding: 2rem; } }
+
+    .tcard--dark:hover {
+      box-shadow:
+        0 8px 16px -4px rgba(0,0,0,0.24),
+        0 32px 64px -12px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(0,168,89,0.18);
+    }
+
+    /* Wide: span 2 cols on lg */
+    @media (min-width: 1024px) {
+      .tcard--wide { grid-column: span 2; }
+    }
+
+    /* ─── Featured Card (dark) internals ─── */
+    .featured-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      height: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .featured-layout {
+        flex-direction: row;
+        align-items: center;
+        gap: 2rem;
+      }
+    }
+
+    .featured-image-wrap {
+      position: relative;
+      flex-shrink: 0;
+      border-radius: 1.625rem;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #1e293b;
+      height: 14rem;
+      width: 100%;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+    }
+
+    @media (min-width: 640px) { .featured-image-wrap { height: 16rem; } }
+
+    @media (min-width: 768px) {
+      .featured-image-wrap {
+        width: 13rem;
+        height: 100%;
+        min-height: 14rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .featured-image-wrap { width: 14rem; }
+    }
+
+    .featured-img-gradient {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(15,23,42,0.82) 0%, rgba(15,23,42,0.14) 55%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .featured-rating-chip {
+      position: absolute;
+      bottom: 0.875rem;
+      left: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 0.625rem;
+      padding: 5px 10px;
+    }
+
+    .featured-content {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .quote-icon {
+      position: absolute;
+      top: -0.5rem;
+      left: -0.5rem;
+      z-index: 0;
+      opacity: 0.06;
+    }
+
+    .featured-quote {
+      font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+      font-style: italic;
+      line-height: 1.75;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .featured-footer {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 1.125rem;
+      margin-top: auto;
+    }
+
+    .avatar-wrap {
+      position: relative;
+      width: 2.75rem;
+      height: 2.75rem;
+      flex-shrink: 0;
+    }
+
+    .verified-dot {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background: var(--theme-primary);
+      border: 2px solid #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .reviewer-name {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       color: white;
-      transition: transform 0.35s ease, box-shadow 0.35s ease;
+      line-height: 1.2;
     }
+
+    .reviewer-location {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-top: 3px;
+    }
+
+    /* ─── Regular Card (light) internals ─── */
+    .regular-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      height: 100%;
+    }
+
+    .avatar-section {
+      position: relative;
+      margin-bottom: 1.375rem;
+    }
+
+    .avatar-circle {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2.5px solid var(--theme-white);
+      background: var(--theme-cream-dark);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .stars-chip {
+      position: absolute;
+      bottom: -0.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: color-mix(in srgb, var(--theme-white) 95%, transparent);
+      backdrop-filter: blur(8px);
+      border: 1px solid color-mix(in srgb, var(--theme-white) 98%, transparent);
+      border-radius: 40px;
+      padding: 4px 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+      white-space: nowrap;
+    }
+
+    .regular-quote {
+      font-size: 0.875rem;
+      font-style: italic;
+      line-height: 1.75;
+      color: var(--theme-dark-light);
+      margin-top: 0.625rem;
+      margin-bottom: 1.5rem;
+      flex: 1;
+    }
+
+    .regular-footer {
+      width: 100%;
+      border-top: 1px solid color-mix(in srgb, var(--theme-dark) 7%, transparent);
+      padding-top: 1.125rem;
+      margin-top: auto;
+    }
+
+    .regular-name {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--theme-dark);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .regular-location {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--theme-dark-light);
+      margin-top: 4px;
+    }
+
+    /* Star icons */
+    .star { color: #f59e0b; fill: #f59e0b; }
   `,
   template: `
-    <section class="home-section relative bg-[#F8FAFC]">
-      <div class="absolute inset-0 bg-noise opacity-[0.035] pointer-events-none mix-blend-overlay"></div>
-      <div class="absolute inset-0 bg-grid pointer-events-none mask-image-gradient opacity-60"></div>
-      <div class="absolute top-[20%] left-[-10%] h-[60%] w-[45%] rounded-full bg-accent/10 blur-[160px] pointer-events-none mix-blend-multiply"></div>
-      <div class="absolute right-[-10%] bottom-[-10%] h-[50%] w-[35%] rounded-full bg-primary/15 blur-[160px] pointer-events-none mix-blend-multiply"></div>
+    <section class="testimonials-section">
+      <!-- Ambient -->
+      <div class="absolute inset-0 bg-noise opacity-[0.032] pointer-events-none mix-blend-overlay"></div>
+      <div class="absolute inset-0 bg-grid pointer-events-none mask-image-gradient opacity-55"></div>
+      <div class="absolute top-[18%] left-[-12%] h-[60%] w-[48%] rounded-full bg-accent/8 blur-[150px] pointer-events-none mix-blend-multiply"></div>
+      <div class="absolute right-[-10%] bottom-[-12%] h-[52%] w-[38%] rounded-full bg-primary/12 blur-[150px] pointer-events-none mix-blend-multiply"></div>
 
-      <div class="aq-container relative z-10">
-        <div class="home-section__header" #testimonialsHeader>
-          <div class="home-section__eyebrow">
-            <span class="relative flex h-2 w-2">
+      <div class="aq-container">
+
+        <!-- ── Header ── -->
+        <div class="section-header" #testimonialsHeader>
+          <div class="eyebrow-badge">
+            <span class="relative flex h-[7px] w-[7px]">
               <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
-              <span class="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+              <span class="relative inline-flex h-[7px] w-[7px] rounded-full bg-primary"></span>
             </span>
-            <span class="text-xs font-semibold uppercase tracking-[0.15em] text-primary sm:text-sm">Trusted Globally</span>
+            <span class="eyebrow-text">{{ content.eyebrow }}</span>
           </div>
-          <h2 class="home-section__title">
-            Praised by <span class="relative inline-block mt-2">
-              <span class="relative z-10 bg-gradient-to-r from-primary-dark via-primary to-accent-dark bg-clip-text text-transparent">Culinary Masters</span>
-              <svg class="absolute bottom-[-0.25rem] left-0 -z-10 h-3 w-full text-primary/20" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0,10 Q50,20 100,10" fill="currentColor"/></svg>
+
+          <h2 class="main-title">
+            {{ content.title.main }}
+            <span class="relative inline-block ml-2">
+              <span class="relative z-10 gradient-text">{{ content.title.accent }}</span>
+              <span class="title-underline"></span>
             </span>
           </h2>
-          <p class="home-section__copy">
-            Reviews now sit in a cleaner grid with more balanced sizing, spacing, and readability across mobile, tablet, and desktop.
+
+          <p class="subtitle">
+            {{ content.subtitle }}
           </p>
         </div>
 
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8" #testimonialsGrid>
+        <!-- ── Grid ── -->
+        <div class="testimonials-grid" #testimonialsGrid>
           @for (t of testimonials(); track t.name; let idx = $index) {
-            <div
-              class="relative overflow-hidden rounded-[2rem] p-6 sm:p-8"
-              [class.lg:col-span-2]="idx === 0"
-              [class.glass-card-premium-dark]="idx === 0"
-              [class.glass-card-premium]="idx !== 0"
-            >
-              @if (idx === 0) {
-                <div class="absolute top-0 right-0 -z-10 h-80 w-80 rounded-full bg-primary/20 blur-[100px] opacity-55"></div>
-                <div class="flex h-full flex-col gap-6 lg:flex-row lg:items-center">
-                  <div class="relative h-60 w-full shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-slate-800 shadow-xl sm:h-72 lg:w-56">
-                    <img [ngSrc]="'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=500&q=80'" fill class="object-cover transition-transform duration-[2000ms] hover:scale-105" alt="Chef testimonial portrait" priority />
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-transparent"></div>
-                    <div class="absolute bottom-4 left-4 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur-md">
-                      <div class="flex gap-0.5 text-accent">
-                        @for (s of [1, 2, 3, 4, 5]; track s) {
-                          <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                        }
-                      </div>
-                    </div>
-                  </div>
 
-                  <div class="relative flex flex-1 flex-col">
-                    <svg class="absolute -top-2 -left-2 -z-10 h-12 w-12 text-white/5" fill="currentColor" viewBox="0 0 32 32"><path d="M10 8c-3.3 0-6 2.7-6 6v10h10V14H8c0-1.1.9-2 2-2V8zm18 0c-3.3 0-6 2.7-6 6v10h10V14h-6c0-1.1.9-2 2-2V8z"/></svg>
-                    <p class="mb-6 font-heading text-lg leading-9 text-white/90 italic lg:text-xl">
-                      "{{ t.text }}"
-                    </p>
-                    <div class="mt-auto flex items-center gap-3 border-t border-white/10 pt-4">
-                      <div class="relative h-12 w-12 shrink-0">
-                        <img [ngSrc]="'https://i.pravatar.cc/100?img=' + (idx + 10)" fill alt="Featured customer" class="rounded-full border-2 border-white/20 object-cover shadow-md" />
-                        <div class="absolute right-[-0.2rem] bottom-[-0.2rem] flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#0F172A] bg-primary">
-                          <svg class="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 class="font-heading text-lg font-bold leading-none tracking-wide text-white">{{ t.name }}</h4>
-                        <p class="mt-1.5 font-body text-[9px] uppercase tracking-[0.2em] text-white/60">{{ t.location }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              } @else {
-                <div class="relative flex h-full flex-col items-center text-center">
-                  <svg class="absolute top-0 right-4 -z-10 h-12 w-12 text-primary/5" fill="currentColor" viewBox="0 0 32 32"><path d="M10 8c-3.3 0-6 2.7-6 6v10h10V14H8c0-1.1.9-2 2-2V8zm18 0c-3.3 0-6 2.7-6 6v10h10V14h-6c0-1.1.9-2 2-2V8z"/></svg>
-                  <div class="relative mb-6">
-                    <div class="relative h-16 w-16">
-                      <img [ngSrc]="'https://i.pravatar.cc/100?img=' + (idx + 10)" fill alt="Customer avatar" class="rounded-full border-2 border-white bg-slate-100 object-cover shadow-md" />
-                    </div>
-                    <div class="glass-card-premium absolute bottom-[-0.625rem] left-1/2 flex -translate-x-1/2 gap-0.5 rounded-full border border-white/95 px-2 py-1 shadow-sm">
-                      @for (s of [1, 2, 3, 4, 5]; track s) {
-                        <svg class="h-3 w-3 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+            <!-- Featured (dark, wide) card -->
+            @if (idx === 0) {
+              <div class="tcard tcard--dark tcard--wide">
+                <!-- Ambient glow inside card -->
+                <div class="absolute top-0 right-0 -z-0 h-72 w-72 rounded-full bg-primary/18 blur-[90px] opacity-50 pointer-events-none"></div>
+
+                <div class="featured-layout relative z-10">
+
+                  <!-- Image -->
+                  <div class="featured-image-wrap">
+                    <img
+                      [ngSrc]="content.featuredPortrait"
+                      fill
+                      class="object-cover transition-transform duration-[2000ms] hover:scale-105"
+                      alt="Chef testimonial portrait"
+                      priority
+                    />
+                    <div class="featured-img-gradient"></div>
+                    <div class="featured-rating-chip">
+                      @for (s of [1,2,3,4,5]; track s) {
+                        <svg class="h-3 w-3 star" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
                       }
                     </div>
                   </div>
 
-                  <p class="mb-8 pt-2 font-body text-base leading-8 text-dark-light/95 italic">
-                    "{{ t.text }}"
-                  </p>
+                  <!-- Content -->
+                  <div class="featured-content">
+                    <svg class="quote-icon w-14 h-14" fill="currentColor" viewBox="0 0 32 32">
+                      <path d="M10 8c-3.3 0-6 2.7-6 6v10h10V14H8c0-1.1.9-2 2-2V8zm18 0c-3.3 0-6 2.7-6 6v10h10V14h-6c0-1.1.9-2 2-2V8z"/>
+                    </svg>
+                    <p class="featured-quote">"{{ t.text }}"</p>
 
-                  <div class="mt-auto w-full border-t border-slate-200/50 pt-4">
-                    <h4 class="font-heading text-lg font-bold leading-none tracking-wide text-dark">{{ t.name }}</h4>
-                    <p class="mt-1.5 font-body text-[9px] uppercase tracking-[0.2em] text-dark-light/60">{{ t.location }}</p>
+                    <div class="featured-footer">
+                      <div class="avatar-wrap">
+                        <img
+                          [ngSrc]="'https://i.pravatar.cc/100?img=' + (idx + 10)"
+                          fill
+                          alt="Featured reviewer"
+                          class="rounded-full border-2 border-white/20 object-cover"
+                        />
+                        <div class="verified-dot">
+                          <svg width="7" height="7" fill="none" stroke="white" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="reviewer-name">{{ t.name }}</div>
+                        <div class="reviewer-location">{{ t.location }}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              }
-            </div>
+              </div>
+            }
+
+            <!-- Regular (light) cards -->
+            @if (idx !== 0) {
+              <div class="tcard tcard--light">
+                <div class="regular-layout">
+
+                  <!-- Avatar + stars -->
+                  <div class="avatar-section">
+                    <div class="avatar-circle">
+                      <img
+                        [ngSrc]="'https://i.pravatar.cc/100?img=' + (idx + 10)"
+                        fill
+                        alt="Customer avatar"
+                        class="object-cover"
+                      />
+                    </div>
+                    <div class="stars-chip">
+                      @for (s of [1,2,3,4,5]; track s) {
+                        <svg class="h-[10px] w-[10px] star" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Quote -->
+                  <p class="regular-quote">"{{ t.text }}"</p>
+
+                  <!-- Footer -->
+                  <div class="regular-footer">
+                    <div class="regular-name">{{ t.name }}</div>
+                    <div class="regular-location">{{ t.location }}</div>
+                  </div>
+                </div>
+              </div>
+            }
           }
         </div>
+
       </div>
     </section>
   `,
 })
 export class TestimonialsSectionComponent implements OnInit {
   private readonly productService = inject(ProductService);
-  readonly testimonialsHeader = viewChild<ElementRef>('testimonialsHeader');
-  readonly testimonialsGrid = viewChild<ElementRef>('testimonialsGrid');
 
+  readonly testimonialsHeader = viewChild<ElementRef>('testimonialsHeader');
+  readonly testimonialsGrid   = viewChild<ElementRef>('testimonialsGrid');
+
+  readonly content = HOME_CONTENT.testimonials;
   readonly testimonials = signal<Testimonial[]>([]);
 
   constructor() {
     afterNextRender(() => {
       const header = this.testimonialsHeader()?.nativeElement;
-      const grid = this.testimonialsGrid()?.nativeElement;
-
-      if (header && grid) {
+      if (header) {
         gsap.from(header.children, {
-          y: 35,
+          y: 30,
           opacity: 0,
-          duration: 1,
+          duration: 0.9,
           stagger: 0.1,
           ease: 'power3.out',
-          scrollTrigger: { trigger: header, start: 'top 85%' },
+          scrollTrigger: { trigger: header, start: 'top 85%', toggleActions: 'play none none reverse' },
         });
+      }
+    });
 
-        gsap.from(grid.children, {
-          y: 45,
-          opacity: 0,
-          duration: 1.1,
-          stagger: 0.15,
-          ease: 'power3.out',
-          scrollTrigger: { trigger: grid, start: 'top 85%' },
-        });
+    effect(() => {
+      const list = this.testimonials();
+      if (list.length > 0) {
+        setTimeout(() => this.animateGrid());
       }
     });
   }
@@ -185,5 +578,20 @@ export class TestimonialsSectionComponent implements OnInit {
     this.productService.getTestimonials().subscribe({
       next: (t) => this.testimonials.set(t.slice(0, 3)),
     });
+  }
+
+  private animateGrid(): void {
+    const grid = this.testimonialsGrid()?.nativeElement;
+    if (grid) {
+      gsap.from(grid.children, {
+        y: 44,
+        opacity: 0,
+        scale: 0.97,
+        duration: 1.0,
+        stagger: 0.14,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: grid, start: 'top 85%', toggleActions: 'play none none reverse' },
+      });
+    }
   }
 }

@@ -41,6 +41,25 @@ export const authReducer = createReducer(
     error,
   })),
 
+  // ── Google Login ────────────────────────────────────────────
+  on(AuthActions.googleLogin, (state) => ({
+    ...state,
+    loading: true,
+    error: null,
+  })),
+  on(AuthActions.googleLoginSuccess, (state, { user }) => ({
+    ...state,
+    user,
+    loading: false,
+    isAuthenticated: true,
+    error: null,
+  })),
+  on(AuthActions.googleLoginFailure, (state, { error }) => ({
+    ...state,
+    loading: false,
+    error,
+  })),
+
   // ── Register ─────────────────────────────────────────────
   on(AuthActions.register, (state) => ({
     ...state,
@@ -84,6 +103,24 @@ export const authReducer = createReducer(
     user,
     loading: false,
     isAuthenticated: !!user,
+  })),
+
+  // ── Update Profile ───────────────────────────────────────
+  on(AuthActions.updateProfile, (state) => ({
+    ...state,
+    loading: true,
+    error: null,
+  })),
+  on(AuthActions.updateProfileSuccess, (state, { user }) => ({
+    ...state,
+    user,
+    loading: false,
+    error: null,
+  })),
+  on(AuthActions.updateProfileFailure, (state, { error }) => ({
+    ...state,
+    loading: false,
+    error,
   })),
 
   // ── Clear Error ──────────────────────────────────────────

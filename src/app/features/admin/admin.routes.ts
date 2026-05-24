@@ -22,6 +22,10 @@ export const adminRoutes: Routes = [
         path: 'customers',
         loadComponent: () => import('./pages/customers').then((m) => m.AdminCustomersComponent),
       },
+      {
+        path: 'settings',
+        loadComponent: () => import('./pages/settings').then((m) => m.AdminSettingsComponent),
+      },
     ],
   },
 ];

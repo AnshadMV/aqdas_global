@@ -10,61 +10,113 @@ import { selectAuthLoading, selectAuthError } from '../../store/auth/auth.select
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, FormsModule],
   host: { 'class': 'block' },
+  styles: `
+    .auth-section {
+      min-height: 85vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--theme-secondary) 0%, var(--theme-cream) 50%, var(--theme-secondary) 100%);
+      position: relative; overflow: hidden; padding: 4rem 1.5rem;
+    }
+    .auth-blob-1 { position: absolute; top: -15%; right: -10%; width: 50%; height: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--theme-primary) 8%, transparent), transparent 70%); filter: blur(100px); pointer-events: none; }
+    .auth-blob-2 { position: absolute; bottom: -15%; left: -10%; width: 45%; height: 45%; background: radial-gradient(circle, color-mix(in srgb, var(--theme-accent) 6%, transparent), transparent 70%); filter: blur(120px); pointer-events: none; }
+
+    .auth-card {
+      width: 100%; max-width: 28rem; background: color-mix(in srgb, var(--theme-cream) 85%, transparent); backdrop-filter: blur(24px);
+      border: 1px solid color-mix(in srgb, var(--theme-cream) 90%, transparent); border-radius: 2rem; padding: 2.5rem;
+      box-shadow: 0 24px 48px -12px color-mix(in srgb, var(--theme-dark) 12%, transparent); position: relative; z-index: 10;
+      animation: cardEnter 0.6s cubic-bezier(0.22,1,0.36,1);
+    }
+    @media (min-width: 640px) { .auth-card { padding: 3rem; } }
+    @keyframes cardEnter { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .auth-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme-primary) 30%, transparent), transparent); border-radius: 2rem 2rem 0 0; }
+
+    .auth-header { text-align: center; margin-bottom: 2rem; }
+    .auth-title { font-size: 1.875rem; font-weight: 800; color: var(--theme-dark); font-family: var(--theme-font-headings); letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+    .auth-subtitle { font-size: 0.9rem; color: var(--theme-dark-light); line-height: 1.5; }
+
+    .auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    .form-label { font-size: 0.8rem; font-weight: 600; color: var(--theme-dark-light); }
+    .form-input {
+      width: 100%; padding: 0.9rem 1.125rem; background: color-mix(in srgb, var(--theme-cream) 80%, transparent);
+      border: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent); border-radius: 1rem;
+      font-size: 0.9rem; color: var(--theme-dark); font-family: var(--theme-font-base); outline: none; transition: all 0.3s ease;
+    }
+    .form-input:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-primary) 8%, transparent); background: var(--theme-cream); }
+    .form-input::placeholder { color: color-mix(in srgb, var(--theme-dark-light) 60%, transparent); }
+
+    .error-msg {
+      display: flex; align-items: center; gap: 0.5rem; padding: 0.875rem 1rem; border-radius: 1rem;
+      background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15);
+      color: #ef4444; font-size: 0.8rem; font-weight: 500; animation: shake 0.4s ease;
+    }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+    .btn-primary {
+      width: 100%; padding: 1rem; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-light));
+      color: var(--theme-white); font-weight: 700; font-size: 0.9rem; border: none; border-radius: 1rem;
+      cursor: pointer; transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+      box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--theme-primary) 35%, transparent); position: relative; overflow: hidden;
+    }
+    .btn-primary::before { content: ''; position: absolute; top: -50%; left: -60%; width: 25%; height: 200%; background: color-mix(in srgb, var(--theme-white) 20%, transparent); transform: rotate(30deg); transition: none; }
+    .btn-primary:hover:not(:disabled)::before { left: 150%; transition: left 1s; }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--theme-primary) 45%, transparent); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .auth-footer { text-align: center; margin-top: 1.75rem; font-size: 0.85rem; color: var(--theme-dark-light); }
+    .auth-footer a { color: var(--theme-primary); font-weight: 700; text-decoration: none; transition: color 0.2s; }
+    .auth-footer a:hover { color: var(--theme-primary-dark); text-decoration: underline; }
+  `,
   template: `
-    <section class="min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-secondary via-cream to-secondary px-6 py-16">
-      <div class="w-full max-w-md">
-        <div class="glass rounded-3xl p-10 shadow-2xl border border-white/30">
-          <div class="text-center mb-8">
-            <h1 class="font-heading text-3xl font-bold text-dark mb-2">Create Account</h1>
-            <p class="font-body text-dark/50 text-sm">Join AQDAS for premium Kerala spices</p>
+    <section class="auth-section">
+      <div class="auth-blob-1"></div>
+      <div class="auth-blob-2"></div>
+
+      <div class="auth-card">
+        <div class="auth-header">
+          <h1 class="auth-title">Create Account</h1>
+          <p class="auth-subtitle">Join AQDAS for premium Kerala spices</p>
+        </div>
+
+        <form (ngSubmit)="onRegister()" class="auth-form">
+          <div class="form-group">
+            <label for="reg-name" class="form-label">Full Name</label>
+            <input id="reg-name" type="text" [(ngModel)]="displayName" name="displayName" required placeholder="Your full name" class="form-input" />
           </div>
 
-          <form (ngSubmit)="onRegister()" class="space-y-5">
-            <div>
-              <label for="reg-name" class="block font-body text-sm font-medium text-dark/70 mb-1.5">Full Name</label>
-              <input id="reg-name" type="text" [(ngModel)]="displayName" name="displayName" required
-                placeholder="Your name"
-                class="w-full px-4 py-3.5 rounded-xl border border-dark/10 bg-white/50 font-body text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
-            </div>
-            <div>
-              <label for="reg-email" class="block font-body text-sm font-medium text-dark/70 mb-1.5">Email</label>
-              <input id="reg-email" type="email" [(ngModel)]="email" name="email" required
-                placeholder="you&#64;example.com"
-                class="w-full px-4 py-3.5 rounded-xl border border-dark/10 bg-white/50 font-body text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
-            </div>
-            <div>
-              <label for="reg-password" class="block font-body text-sm font-medium text-dark/70 mb-1.5">Password</label>
-              <input id="reg-password" type="password" [(ngModel)]="password" name="password" required minlength="6"
-                placeholder="Min 6 characters"
-                class="w-full px-4 py-3.5 rounded-xl border border-dark/10 bg-white/50 font-body text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
-            </div>
+          <div class="form-group">
+            <label for="reg-email" class="form-label">Email Address</label>
+            <input id="reg-email" type="email" [(ngModel)]="email" name="email" required placeholder="you@example.com" class="form-input" />
+          </div>
 
-            @if (authError()) {
-              <p class="text-red-500 text-sm font-body bg-red-50 p-3 rounded-xl">{{ authError()?.message }}</p>
-            }
+          <div class="form-group">
+            <label for="reg-password" class="form-label">Password</label>
+            <input id="reg-password" type="password" [(ngModel)]="password" name="password" required minlength="6" placeholder="Min 6 characters" class="form-input" />
+          </div>
 
-            <button type="submit" [disabled]="loading()"
-              class="w-full bg-primary hover:bg-primary-dark text-black font-body font-semibold py-3.5 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98] disabled:opacity-50">
-              {{ loading() ? 'Creating...' : 'Create Account' }}
-            </button>
-          </form>
+          @if (authError()) {
+            <div class="error-msg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {{ authError()?.message }}
+            </div>
+          }
 
-          <p class="text-center mt-6 font-body text-sm text-dark/50">
-            Already have an account?
-            <a routerLink="/login" class="text-primary font-semibold hover:underline">Sign in</a>
-          </p>
-        </div>
+          <button type="submit" [disabled]="loading()" class="btn-primary">
+            {{ loading() ? 'Creating Account...' : 'Create Account' }}
+          </button>
+        </form>
+
+        <p class="auth-footer">
+          Already have an account? <a routerLink="/login">Sign in</a>
+        </p>
       </div>
     </section>
   `,
 })
 export class RegisterComponent {
   private readonly store = inject(Store);
-
   displayName = '';
   email = '';
   password = '';
-
   readonly loading = this.store.selectSignal(selectAuthLoading);
   readonly authError = this.store.selectSignal(selectAuthError);
 

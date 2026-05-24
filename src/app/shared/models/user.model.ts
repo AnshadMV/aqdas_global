@@ -8,6 +8,12 @@ export interface User {
   photoURL: string | null;
   emailVerified: boolean;
   role?: 'admin' | 'user';
+  phoneNumber?: string;
+  shippingAddress?: {
+    address: string;
+    city: string;
+    postalCode: string;
+  };
 }
 
 /**

@@ -1,14 +1,15 @@
-import { Component, ChangeDetectionStrategy, afterNextRender, signal, ElementRef, viewChild, inject, OnInit, DoCheck } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, ElementRef, viewChild, inject, OnInit, computed, effect } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { NgOptimizedImage } from '@angular/common';
 import { ProductActions } from '../../../store/product/product.actions';
 import { CartActions } from '../../../store/cart/cart.actions';
-import { selectAllProducts, selectProductLoading } from '../../../store/product/product.selectors';
+import { selectActiveProducts, selectProductLoading } from '../../../store/product/product.selectors';
 import { selectCurrentUser } from '../../../store/auth/auth.selectors';
 import { Product, CartItem } from '../../../shared/models';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { HOME_CONTENT } from '../../../../environments/constants';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -18,154 +19,815 @@ gsap.registerPlugin(ScrollTrigger);
   imports: [RouterLink, NgOptimizedImage],
   host: { class: 'block' },
   styles: `
-    .bg-grid {
-      background-size: 50px 50px;
-      background-image: linear-gradient(to right, rgba(0, 168, 89, 0.04) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(0, 168, 89, 0.04) 1px, transparent 1px);
+    /* Modern Bento Grid Background - Consistent with Categories Section */
+    .featured-bg {
+      background: linear-gradient(135deg, var(--theme-cream-dark) 0%, var(--theme-cream) 50%, var(--theme-cream-dark) 100%);
+      position: relative;
+      min-height: 600px; /* Prevent collapse during load */
     }
-    .bg-noise {
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    .featured-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 20% 30%, rgba(0, 168, 89, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(255, 193, 7, 0.05) 0%, transparent 40%);
+      pointer-events: none;
     }
-    .mask-image-gradient {
-      mask-image: radial-gradient(circle at center, black, transparent 85%);
-      -webkit-mask-image: radial-gradient(circle at center, black, transparent 85%);
+
+    /* Animated Gradient Mesh */
+    .featured-gradient-mesh {
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse at 30% 40%, rgba(0, 168, 89, 0.12), transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(255, 193, 7, 0.08), transparent 50%);
+      filter: blur(80px);
+      animation: mesh-flow 12s ease-in-out infinite;
+      pointer-events: none;
     }
+
+    @keyframes mesh-flow {
+      0%, 100% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+      50% { opacity: 0.5; transform: scale(1.05) rotate(2deg); }
+    }
+
+    /* Container */
+    .aq-container {
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+
+    @media (min-width: 640px) {
+      .aq-container {
+        padding-left: 2rem;
+        padding-right: 2rem;
+        padding-top: 2.5rem;
+        padding-bottom: 2.5rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .aq-container {
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+      }
+    }
+
+    /* Section Header */
+    .section-header {
+      text-align: center;
+      margin-bottom: 40px;
+      margin-top: 20px;
+    }
+
+    @media (min-width: 640px) {
+      .section-header {
+        margin-bottom: 48px;
+        margin-top: 28px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .section-header {
+        margin-bottom: 56px;
+        margin-top: 36px;
+      }
+    }
+
+    .eyebrow-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 168, 89, 0.08);
+      border: 1px solid rgba(0, 168, 89, 0.15);
+      border-radius: 40px;
+      padding: 6px 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (min-width: 640px) {
+      .eyebrow-badge {
+        margin-bottom: 28px;
+        padding: 7px 18px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .eyebrow-badge {
+        margin-bottom: 32px;
+        padding: 8px 20px;
+      }
+    }
+
+    .eyebrow-text {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--theme-primary);
+      text-transform: uppercase;
+    }
+
+    .main-title {
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 14px;
+      color: var(--theme-dark);
+    }
+
+    @media (min-width: 640px) {
+      .main-title {
+        font-size: 44px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .main-title {
+        font-size: 56px;
+        margin-bottom: 18px;
+      }
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--theme-dark), var(--theme-primary), #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .title-underline {
+      position: absolute;
+      bottom: -0.25rem;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--theme-primary), #f59e0b, transparent);
+    }
+
+    .subtitle {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--theme-dark-light);
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    @media (min-width: 640px) {
+      .subtitle {
+        font-size: 14px;
+      }
+    }
+
+    /* Products Grid */
+    .products-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+      min-height: 400px; /* Reserve space to prevent layout shift */
+    }
+
+    @media (min-width: 640px) {
+      .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.75rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .products-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2rem;
+      }
+    }
+
+    /* Product Card - Enhanced with better internal spacing */
     .product-card {
-      border-radius: 2rem;
-      transition: transform 0.35s ease, box-shadow 0.35s ease, background-color 0.35s ease, border-color 0.35s ease;
+      border-radius: 1.5rem;
+      transition: all 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      opacity: 0; /* Start hidden for animation */
+      transform: translateY(20px); /* Start slightly down for animation */
     }
+
+    .product-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .product-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 1.5rem;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      -webkit-mask-composite: xor;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .product-card:hover::before {
+      opacity: 1;
+    }
+
     .product-card:hover {
       transform: translateY(-6px);
     }
+
+    /* Light Card Theme */
     .product-card--light {
-      background: rgba(255, 255, 255, 0.68);
-      border: 1px solid rgba(255, 255, 255, 0.88);
-      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.05);
+      background: var(--theme-white);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(0, 168, 89, 0.1);
+      box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.08);
     }
+
+    .product-card--light:hover {
+      box-shadow: 0 25px 40px -14px rgba(0, 168, 89, 0.15);
+      border-color: rgba(0, 168, 89, 0.3);
+    }
+
+    /* Dark Card Theme - Fixed */
     .product-card--dark {
-      background: rgba(15, 23, 42, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 18px 36px rgba(2, 6, 23, 0.24);
+      background: linear-gradient(135deg, #0f172a, #1e293b); 
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.35);
+    }
+
+    .product-card--dark:hover {
+      box-shadow: 0 25px 40px -14px rgba(0, 0, 0, 0.45);
+      border-color: rgba(0, 168, 89, 0.3);
+    }
+
+    /* Image Container - Improved spacing around image */
+    .image-wrapper {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      border-radius: 1.25rem;
+      margin: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .image-wrapper {
+        margin: 1.125rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .image-wrapper {
+        margin: 1.25rem;
+      }
+    }
+
+    .image-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-blur-bg {
+      position: absolute;
+      width: 78%;
+      height: 78%;
+      border-radius: 50%;
+      filter: blur(25px);
+      transition: transform 0.5s ease;
+    }
+
+    /* Light card blur background */
+    .image-blur-bg--light {
+      background: var(--theme-primary);
+      opacity: 0.15;
+    }
+
+    /* Dark card blur background */
+    .image-blur-bg--dark {
+      background: #ffffff;
+      opacity: 0.08;
+    }
+
+    .product-card:hover .image-blur-bg {
+      transform: scale(1.1);
+    }
+
+    .product-image {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    }
+
+    .product-card:hover .product-image {
+      transform: scale(1.06);
+    }
+
+    /* Badges Container - Better positioning and spacing */
+    .badges-container {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      right: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      z-index: 2;
+    }
+
+    @media (min-width: 640px) {
+      .badges-container {
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+      }
+    }
+
+    .weight-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.375rem 0.875rem;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: white;
+      text-transform: uppercase;
+    }
+
+    /* Dark card weight badge */
+    .product-card--dark .weight-badge {
+      background: rgba(0, 0, 0, 0.7);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .promo-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.375rem 0.875rem;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-radius: 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: #0f172a;
+      text-transform: uppercase;
+    }
+
+    /* Content Section - Improved internal spacing */
+    .product-content {
+      padding: 0 1rem 1rem 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (min-width: 640px) {
+      .product-content {
+        padding: 0 1.125rem 1.125rem 1.125rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .product-content {
+        padding: 0 1.25rem 1.25rem 1.25rem;
+      }
+    }
+
+    /* Rating Stars - Consistent spacing */
+    .rating-stars {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-bottom: 0.625rem;
+    }
+
+    .star-icon {
+      width: 0.875rem;
+      height: 0.875rem;
+      color: #f59e0b;
+      fill: #f59e0b;
+    }
+
+    .rating-count {
+      margin-left: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .text-white-60 {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .text-dark-60 {
+      color: var(--theme-dark-light);
+    }
+
+    /* Product Title - Proper margin spacing */
+    .product-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+      margin: 0 0 0.75rem 0;
+    }
+
+    @media (min-width: 640px) {
+      .product-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.875rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .product-title {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+      }
+    }
+
+    .text-white {
+      color: #ffffff;
+    }
+
+    .text-dark {
+      color: var(--theme-dark);
+    }
+
+    /* Divider - Better visual separation */
+    .product-divider {
+      margin: 0.75rem 0 0.875rem 0;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.1;
+    }
+
+    /* Card Footer - Improved spacing and alignment */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Price Section - Better typography spacing */
+    .price-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .price-value {
+      display: flex;
+      align-items: baseline;
+      gap: 0.125rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    @media (min-width: 640px) {
+      .price-value {
+        font-size: 1.35rem;
+      }
+    }
+
+    .price-currency {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .price-primary {
+      color: var(--theme-primary);
+    }
+
+    .price-white {
+      color: #ffffff;
+    }
+
+    /* Add to Cart Button - Better sizing and spacing */
+    .cart-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 0.875rem;
+      border: 1px solid;
+      backdrop-filter: blur(8px);
+      transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 640px) {
+      .cart-button {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 1rem;
+      }
+    }
+
+    .cart-button:hover {
+      transform: scale(1.06);
+    }
+
+    /* Light card button */
+    .cart-button-light {
+      background: var(--theme-dark);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--theme-cream);
+    }
+
+    .cart-button-light:hover {
+      background: var(--theme-primary);
+      border-color: var(--theme-primary);
       color: white;
     }
-    .btn-add {
-      transition: transform 0.25s ease, background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+
+    /* Dark card button */
+    .cart-button-dark {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: white;
     }
-    .btn-add:hover {
-      transform: scale(1.05);
+
+    .cart-button-dark:hover {
+      background: var(--theme-primary);
+      border-color: var(--theme-primary);
+      color: white;
+    }
+
+    .cart-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+      transition: transform 0.2s ease;
+    }
+
+    @media (min-width: 640px) {
+      .cart-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+    }
+
+    .cart-button:hover .cart-icon {
+      transform: scale(1.1);
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 3rem 0;
+      min-height: 400px; /* Match grid min-height */
+    }
+
+    .spinner {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      border: 3px solid color-mix(in srgb, var(--theme-primary) 15%, transparent);
+      border-top-color: var(--theme-primary);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Catalog Button */
+    .catalog-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      background: var(--theme-cream);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(0, 168, 89, 0.2);
+      border-radius: 60px;
+      padding: 0.875rem 1.75rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+      color: var(--theme-dark);
+      transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      cursor: pointer;
+      text-decoration: none;
+      margin-top: 32px;
+    }
+
+    .catalog-button:hover {
+      background: var(--theme-dark);
+      border-color: var(--theme-dark);
+      color: var(--theme-cream);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -8px rgba(0, 168, 89, 0.3);
+    }
+
+    .catalog-button:hover .catalog-icon {
+      transform: translateX(0.25rem);
+    }
+
+    .catalog-icon {
+      width: 1rem;
+      height: 1rem;
+      transition: transform 0.3s ease;
+    }
+
+    /* Animation Classes */
+    .fade-in-up {
+      animation: fadeInUp 0.5s ease forwards;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   `,
   template: `
-    <section class="home-section relative bg-[#F1F5F9]">
-      <div class="absolute inset-0 bg-noise opacity-[0.035] pointer-events-none mix-blend-overlay"></div>
-      <div class="absolute inset-0 bg-grid pointer-events-none mask-image-gradient opacity-60"></div>
-      <div class="absolute top-[-10%] right-[10%] h-[55%] w-[55%] rounded-full bg-accent/10 blur-[160px] pointer-events-none mix-blend-multiply"></div>
-      <div class="absolute bottom-[-10%] left-[10%] h-[55%] w-[55%] rounded-full bg-primary/10 blur-[160px] pointer-events-none mix-blend-multiply"></div>
-
+    <section class="featured-bg relative overflow-hidden">
+      <div class="featured-gradient-mesh"></div>
       <div class="aq-container relative z-10">
-        <div class="home-section__header">
-          <div class="home-section__eyebrow">
-            <span class="relative flex h-2 w-2">
+        
+        <!-- Section Header -->
+        <div class="section-header">
+          <div class="eyebrow-badge">
+            <span class="relative flex h-1.5 w-1.5">
               <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
-              <span class="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+              <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary"></span>
             </span>
-            <span class="text-xs font-semibold uppercase tracking-[0.15em] text-primary sm:text-sm">Pure Premium Quality</span>
+            <span class="eyebrow-text">{{ content.eyebrow }}</span>
           </div>
-          <h2 class="home-section__title">
-            Featured <span class="relative inline-block mt-2">
-              <span class="relative z-10 bg-gradient-to-r from-primary-dark via-primary to-accent-dark bg-clip-text text-transparent">Best Sellers</span>
-              <svg class="absolute bottom-[-0.25rem] left-0 -z-10 h-3 w-full text-primary/20" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0,10 Q50,20 100,10" fill="currentColor"/></svg>
+
+          <h2 class="main-title">
+            {{ content.title.main }} 
+            <span class="relative inline-block">
+              <span class="relative z-10 gradient-text">{{ content.title.accent }}</span>
+              <span class="title-underline"></span>
             </span>
           </h2>
-          <p class="home-section__copy">
-            Handpicked, graded, and packed to lock in freshness. Discover a cleaner, more balanced showcase of AQDAS favorites.
+
+          <p class="subtitle">
+            {{ content.subtitle }}
           </p>
         </div>
 
+        <!-- Loading State -->
         @if (loading()) {
-          <div class="flex justify-center py-20">
-            <div class="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary"></div>
+          <div class="loading-spinner">
+            <div class="spinner"></div>
           </div>
         } @else {
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8" #productsGrid>
+          <!-- Products Grid -->
+          <div class="products-grid" #productsGrid>
             @for (product of displayProducts(); track product.id; let idx = $index) {
               <div
-                class="product-card group flex cursor-pointer flex-col justify-between p-5 sm:p-6"
+                class="product-card group cursor-pointer"
                 [class.product-card--light]="idx !== 1 && idx !== 3"
                 [class.product-card--dark]="idx === 1 || idx === 3"
                 [routerLink]="['/shop', product.id]"
               >
-                <div>
-                  <div class="relative aspect-square overflow-hidden rounded-[1.5rem] border border-white/50 bg-white/70 p-4">
-                    <div class="absolute inset-0 flex items-center justify-center opacity-30">
-                      <div class="h-[78%] w-[78%] rounded-full blur-[25px]" [class.bg-primary]="idx !== 1 && idx !== 3" [class.bg-white]="idx === 1 || idx === 3"></div>
-                    </div>
-                    <div class="relative h-full w-full">
-                      <img [ngSrc]="product.imageUrl" [alt]="product.name" fill class="rounded-[1.25rem] object-cover transition-transform duration-700 ease-out group-hover:scale-105" priority />
-                    </div>
-
-                    <div class="absolute top-4 right-4 left-4 flex items-center justify-between gap-3">
-                      <span class="rounded-lg border border-white/10 bg-[#0f172a]/80 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
-                        {{ product.weight || '100g' }}
-                      </span>
-                      @if (product.badge) {
-                        <span class="rounded-lg bg-accent px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-dark">
-                          {{ product.badge }}
-                        </span>
-                      }
+                <!-- Image Section with margin spacing -->
+                <div class="image-wrapper">
+                  <div class="image-inner">
+                    <!-- Blur Background -->
+                    <div 
+                      class="image-blur-bg"
+                      [class.image-blur-bg--light]="idx !== 1 && idx !== 3"
+                      [class.image-blur-bg--dark]="idx === 1 || idx === 3"
+                    ></div>
+                    
+                    <!-- Product Image -->
+                    <div class="product-image">
+                      <img 
+                        [ngSrc]="product.imageUrl" 
+                        [alt]="product.name" 
+                        fill 
+                        class="rounded-2xl object-cover"
+                        priority
+                      />
                     </div>
                   </div>
 
-                  <div class="mt-6">
-                    <div class="mb-2 flex items-center gap-1">
-                      <div class="flex text-accent">
-                        @for (star of [1, 2, 3, 4, 5]; track star) {
-                          <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                        }
-                      </div>
-                      <span class="ml-1 text-[10px] font-semibold opacity-60" [class.text-white/60]="idx === 1 || idx === 3" [class.text-dark/60]="idx !== 1 && idx !== 3">
-                        ({{ product.reviews || 24 }})
+                  <!-- Badges -->
+                  <div class="badges-container">
+                    <span class="weight-badge">
+                      {{ product.weight || '100g' }}
+                    </span>
+                    @if (product.badge) {
+                      <span class="promo-badge">
+                        {{ product.badge }}
                       </span>
-                    </div>
-
-                    <h3 class="font-heading text-xl font-bold tracking-wide sm:text-2xl" [class.text-white]="idx === 1 || idx === 3" [class.text-dark]="idx !== 1 && idx !== 3">
-                      {{ product.name }}
-                    </h3>
+                    }
                   </div>
                 </div>
 
-                <div class="mt-8 flex items-center justify-between gap-4 border-t border-slate-200/50 pt-4" [class.border-white/10]="idx === 1 || idx === 3">
-                  <div class="flex flex-col">
-                    <span class="text-[9px] font-bold uppercase tracking-[0.24em] opacity-45" [class.text-white]="idx === 1 || idx === 3" [class.text-dark]="idx !== 1 && idx !== 3">Price</span>
-                    <p class="flex items-baseline gap-1 font-body text-xl font-black" [class.text-white]="idx === 1 || idx === 3" [class.text-primary]="idx !== 1 && idx !== 3">
-                      <span class="text-xs font-semibold">&#8377;</span>{{ product.price }}
-                    </p>
+                <!-- Product Content with proper padding -->
+                <div class="product-content">
+                  <!-- Rating Stars -->
+                  <div class="rating-stars">
+                    @for (star of [1, 2, 3, 4, 5]; track star) {
+                      <svg class="star-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                      </svg>
+                    }
+                    <span 
+                      class="rating-count"
+                      [class.text-white-60]="idx === 1 || idx === 3"
+                      [class.text-dark-60]="idx !== 1 && idx !== 3"
+                    >
+                      ({{ product.reviews || 24 }})
+                    </span>
                   </div>
 
-                  <button
-                    (click)="addToCart($event, product)"
-                    class="btn-add flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-md backdrop-blur-md"
-                    [class.bg-dark]="idx !== 1 && idx !== 3"
-                    [class.text-white]="idx !== 1 && idx !== 3"
-                    [class.border-dark/10]="idx !== 1 && idx !== 3"
-                    [class.bg-white/10]="idx === 1 || idx === 3"
+                  <!-- Product Title -->
+                  <h3 
+                    class="product-title"
                     [class.text-white]="idx === 1 || idx === 3"
-                    [class.border-white/15]="idx === 1 || idx === 3"
-                    aria-label="Add to cart"
+                    [class.text-dark]="idx !== 1 && idx !== 3"
                   >
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                  </button>
+                    {{ product.name }}
+                  </h3>
+
+                  <!-- Subtle Divider -->
+                  <div class="product-divider"></div>
+
+                  <!-- Footer with Price and Cart -->
+                  <div class="card-footer">
+                    <div>
+                      <span 
+                        class="price-label"
+                        [class.text-white]="idx === 1 || idx === 3"
+                        [class.text-dark]="idx !== 1 && idx !== 3"
+                      >PRICE</span>
+                      <div 
+                        class="price-value"
+                        [class.price-white]="idx === 1 || idx === 3"
+                        [class.price-primary]="idx !== 1 && idx !== 3"
+                      >
+                        <span class="price-currency">&#8377;</span>{{ product.price }}
+                      </div>
+                    </div>
+
+                    <button
+                      (click)="addToCart($event, product)"
+                      class="cart-button"
+                      [class.cart-button-light]="idx !== 1 && idx !== 3"
+                      [class.cart-button-dark]="idx === 1 || idx === 3"
+                      aria-label="Add to cart"
+                      type="button"
+                    >
+                      <svg class="cart-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             }
           </div>
 
-          <div class="mt-14 text-center">
-            <a routerLink="/shop" class="home-button-secondary group mx-auto gap-4 bg-white/90 px-8">
-              <span class="text-base font-bold tracking-wide">View Full Catalog</span>
-              <div class="flex h-8 w-8 items-center justify-center rounded-full bg-dark/5 transition-all duration-300 group-hover:bg-dark group-hover:text-white">
-                <svg class="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-              </div>
+          <!-- View Catalog Button -->
+          <div class="mt-50 text-center">
+            <a [routerLink]="content.catalogBtnLink" class="catalog-button">
+              <span>{{ content.catalogBtnText }}</span>
+              <svg class="catalog-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
             </a>
           </div>
         }
@@ -173,29 +835,32 @@ gsap.registerPlugin(ScrollTrigger);
     </section>
   `,
 })
-export class FeaturedProductsComponent implements OnInit, DoCheck {
+export class FeaturedProductsComponent implements OnInit {
   private readonly store = inject(Store);
   readonly productsGrid = viewChild<ElementRef>('productsGrid');
-
-  readonly products = this.store.selectSignal(selectAllProducts);
+  readonly content = HOME_CONTENT.featured;
+  readonly products = this.store.selectSignal(selectActiveProducts);
   readonly loading = this.store.selectSignal(selectProductLoading);
   private readonly user = this.store.selectSignal(selectCurrentUser);
-
-  readonly displayProducts = signal<Product[]>([]);
+  
+  readonly displayProducts = computed(() => {
+    return this.products().slice(0, 4);
+  });
 
   constructor() {
-    afterNextRender(() => this.animateProducts());
+    // Trigger animation when products are loaded and displayed
+    effect(() => {
+      const items = this.displayProducts();
+      // Only animate if we have items and we are not loading
+      if (items.length > 0 && !this.loading()) {
+        // Use setTimeout to ensure Angular has finished rendering the DOM nodes
+        setTimeout(() => this.animateProducts(), 0);
+      }
+    });
   }
 
   ngOnInit(): void {
     this.store.dispatch(ProductActions.loadProducts());
-  }
-
-  ngDoCheck(): void {
-    const all = this.products();
-    if (all.length && this.displayProducts().length === 0) {
-      this.displayProducts.set(all.slice(0, 4));
-    }
   }
 
   addToCart(event: Event, product: Product): void {
@@ -215,17 +880,31 @@ export class FeaturedProductsComponent implements OnInit, DoCheck {
   private animateProducts(): void {
     const grid = this.productsGrid()?.nativeElement;
     if (grid) {
-      gsap.from(grid.children, {
-        opacity: 0,
-        y: 50,
-        duration: 1.1,
-        stagger: 0.12,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: grid,
-          start: 'top 85%',
+      // Kill existing animations on these elements to prevent conflicts
+      gsap.killTweensOf(grid.children);
+      
+      gsap.fromTo(grid.children, 
+        {
+          opacity: 0,
+          y: 40,
         },
-      });
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          stagger: 0.1,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: grid,
+            start: 'top 85%',
+            toggleActions: 'play none none reverse'
+          },
+          onComplete: () => {
+            // Optional: Add a class to indicate animation is done if needed for CSS hooks
+            grid.classList.add('animation-complete');
+          }
+        }
+      );
     }
   }
 }

@@ -13,42 +13,320 @@ import type { WishlistItem, CartItem } from '../../shared/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, NgOptimizedImage],
   host: { 'class': 'block' },
+  styles: `
+    /* ─── Background & Ambient ─── */
+    .wishlist-section {
+      background: linear-gradient(180deg, var(--theme-cream-dark) 0%, var(--theme-secondary) 100%);
+      position: relative;
+      overflow: hidden;
+      min-height: 100vh;
+    }
+
+    .wishlist-blob-1 {
+      position: absolute;
+      top: -10%;
+      left: -8%;
+      width: 45%;
+      height: 45%;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.06), transparent 70%);
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    .wishlist-blob-2 {
+      position: absolute;
+      bottom: -15%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(circle, rgba(0, 168, 89, 0.05), transparent 70%);
+      filter: blur(100px);
+      pointer-events: none;
+    }
+
+    /* ─── Container ─── */
+    .wishlist-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    @media (min-width: 640px) {
+      .wishlist-container { padding: 6rem 2rem; }
+    }
+
+    @media (min-width: 1024px) {
+      .wishlist-container { padding: 7rem 2.5rem; }
+    }
+
+    /* ─── Header ─── */
+    .wishlist-header {
+      margin-bottom: 3rem;
+    }
+
+    .wishlist-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      color: var(--theme-dark);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .wishlist-subtitle {
+      color: var(--theme-dark-light);
+      font-size: 1.05rem;
+    }
+
+    /* ─── Grid ─── */
+    .wishlist-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 640px) {
+      .wishlist-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (min-width: 1024px) {
+      .wishlist-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ─── Wishlist Card ─── */
+    .wishlist-card {
+      background: var(--theme-cream);
+      border: 1px solid color-mix(in srgb, var(--theme-dark) 4%, transparent);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05);
+    }
+
+    .wishlist-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.16);
+      border-color: rgba(0, 168, 89, 0.15);
+    }
+
+    .card-image-wrap {
+      position: relative;
+      aspect-ratio: 4/3;
+      background: var(--theme-cream-dark);
+      overflow: hidden;
+    }
+
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .wishlist-card:hover .card-image {
+      transform: scale(1.08);
+    }
+
+    .remove-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--theme-white) 90%, transparent);
+      backdrop-filter: blur(8px);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #ef4444;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    .remove-btn:hover {
+      background: #ef4444;
+      color: #fff;
+      transform: scale(1.1);
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    .card-name {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--theme-dark);
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+
+    .card-price-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-price {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #00a859;
+    }
+
+    .card-original {
+      font-size: 0.9rem;
+      color: var(--theme-dark-light);
+      opacity: 0.7;
+      text-decoration: line-through;
+    }
+
+    .move-cart-btn {
+      width: 100%;
+      padding: 0.875rem;
+      background: linear-gradient(135deg, #00a859, #16a34a);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 1rem;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 8px 20px -6px rgba(0, 168, 89, 0.3);
+    }
+
+    .move-cart-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -6px rgba(0, 168, 89, 0.4);
+    }
+
+    .move-cart-btn:active {
+      transform: translateY(0);
+    }
+
+    /* ─── Empty State ─── */
+    .empty-state {
+      text-align: center;
+      padding: 5rem 2rem;
+      background: color-mix(in srgb, var(--theme-white) 60%, transparent);
+      backdrop-filter: blur(12px);
+      border-radius: 2rem;
+      border: 1px dashed color-mix(in srgb, var(--theme-dark) 15%, transparent);
+    }
+
+    .empty-icon {
+      width: 5rem;
+      height: 5rem;
+      background: var(--theme-white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.08);
+      color: var(--theme-dark-light);
+    }
+
+    .empty-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--theme-dark);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .empty-desc {
+      color: var(--theme-dark-light);
+      margin-bottom: 2rem;
+      font-size: 1rem;
+    }
+
+    .empty-btn {
+      background: linear-gradient(135deg, #00a859, #16a34a);
+      color: #fff;
+      font-weight: 700;
+      padding: 1rem 2.5rem;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 24px -8px rgba(0, 168, 89, 0.4);
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .empty-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px -8px rgba(0, 168, 89, 0.5);
+    }
+  `,
   template: `
-    <section class="py-10 bg-secondary min-h-screen">
-      <div class="max-w-5xl mx-auto px-6 lg:px-8">
-        <h1 class="font-heading text-4xl font-bold text-dark mb-8">My Wishlist</h1>
+    <section class="wishlist-section">
+      <div class="wishlist-blob-1"></div>
+      <div class="wishlist-blob-2"></div>
+
+      <div class="wishlist-container">
+        <div class="wishlist-header">
+          <h1 class="wishlist-title">My Wishlist</h1>
+          <p class="wishlist-subtitle">Products you've saved for later</p>
+        </div>
 
         @if (items().length === 0) {
-          <div class="text-center py-20">
-            <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/5 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-primary/40"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+              </svg>
             </div>
-            <h2 class="font-heading text-2xl font-semibold text-dark mb-2">Your wishlist is empty</h2>
-            <p class="font-body text-dark/40 mb-8">Save products you love for later</p>
-            <a routerLink="/shop" class="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-body font-semibold px-8 py-3.5 rounded-full transition-all">
+            <h2 class="empty-title">Your wishlist is empty</h2>
+            <p class="empty-desc">Save products you love for later</p>
+            <a routerLink="/shop" class="empty-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
               Browse Products
             </a>
           </div>
         } @else {
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="wishlist-grid">
             @for (item of items(); track item.productId) {
-              <div class="bg-white rounded-2xl overflow-hidden shadow-sm group">
-                <div class="relative overflow-hidden bg-cream h-52">
-                  <img [ngSrc]="item.imageUrl" [alt]="item.name" fill class="object-cover" />
-                  <button (click)="removeItem(item.productId)" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-red-500 hover:bg-red-50 transition-all" aria-label="Remove from wishlist">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              <div class="wishlist-card">
+                <div class="card-image-wrap">
+                  <img [ngSrc]="item.imageUrl" [alt]="item.name" fill class="card-image" />
+                  <button (click)="removeItem(item.productId)" class="remove-btn" aria-label="Remove from wishlist">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                    </svg>
                   </button>
                 </div>
-                <div class="p-5">
-                  <h3 class="font-heading text-base font-semibold text-dark mb-2">{{ item.name }}</h3>
-                  <div class="flex items-center gap-2 mb-4">
-                    <span class="font-heading text-lg font-bold text-primary">₹{{ item.price }}</span>
+
+                <div class="card-body">
+                  <h3 class="card-name">{{ item.name }}</h3>
+
+                  <div class="card-price-wrap">
+                    <span class="card-price">₹{{ item.price }}</span>
                     @if (item.originalPrice > item.price) {
-                      <span class="font-body text-xs text-dark/30 line-through">₹{{ item.originalPrice }}</span>
+                      <span class="card-original">₹{{ item.originalPrice }}</span>
                     }
                   </div>
-                  <button (click)="moveToCart(item)" class="w-full bg-primary hover:bg-primary-dark text-white font-body text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+
+                  <button (click)="moveToCart(item)" class="move-cart-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="8" cy="21" r="1"/>
+                      <circle cx="19" cy="21" r="1"/>
+                      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                    </svg>
                     Move to Cart
                   </button>
                 </div>
@@ -70,7 +348,14 @@ export class WishlistComponent {
   }
 
   moveToCart(item: WishlistItem): void {
-    const cartItem: CartItem = { productId: item.productId, name: item.name, imageUrl: item.imageUrl, price: item.price, quantity: 1, weight: '' };
+    const cartItem: CartItem = {
+      productId: item.productId,
+      name: item.name,
+      imageUrl: item.imageUrl,
+      price: item.price,
+      quantity: 1,
+      weight: '',
+    };
     this.store.dispatch(CartActions.addToCart({ item: cartItem, uid: this.user()?.uid ?? null }));
     this.removeItem(item.productId);
   }

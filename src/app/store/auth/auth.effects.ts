@@ -2,11 +2,13 @@ import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { of } from 'rxjs';
-import { map, exhaustMap, catchError, tap } from 'rxjs/operators';
+import { map, exhaustMap, catchError, tap, withLatestFrom } from 'rxjs/operators';
 import { AuthActions } from './auth.actions';
 import { AuthService } from '../../core/services/auth.service';
 import type { AuthError } from '../../shared/models';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { Store } from '@ngrx/store';
+import { selectCurrentUser } from './auth.selectors';
 
 @Injectable()
 export class AuthEffects {
@@ -14,6 +16,7 @@ export class AuthEffects {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly toastService = inject(ToastService);
+  private readonly store = inject(Store);
 
   readonly login$ = createEffect(() =>
     this.actions$.pipe(
@@ -120,5 +123,58 @@ export class AuthEffects {
         )
       )
     )
+  );
+
+  readonly updateProfile$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.updateProfile),
+      withLatestFrom(this.store.select(selectCurrentUser)),
+      exhaustMap(([action, currentUser]) => {
+        if (!currentUser) {
+          return of(AuthActions.updateProfileFailure({ 
+            error: { code: 'no-user', message: 'No authenticated user found' } 
+          }));
+        }
+        
+        const { displayName, photoURL, phoneNumber, shippingAddress } = action;
+        
+        return this.authService.updateUserProfile(currentUser.uid, {
+          displayName,
+          photoURL,
+          phoneNumber,
+          shippingAddress
+        }).pipe(
+          map(() => {
+            const updatedUser = {
+              ...currentUser,
+              displayName: displayName !== undefined ? displayName : currentUser.displayName,
+              photoURL: photoURL !== undefined ? photoURL : currentUser.photoURL,
+              phoneNumber: phoneNumber !== undefined ? phoneNumber : currentUser.phoneNumber,
+              shippingAddress: shippingAddress !== undefined ? shippingAddress : currentUser.shippingAddress
+            };
+            return AuthActions.updateProfileSuccess({ user: updatedUser });
+          }),
+          catchError((error: AuthError) => of(AuthActions.updateProfileFailure({ error })))
+        );
+      })
+    )
+  );
+
+  readonly toastOnUpdateProfileSuccess$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.updateProfileSuccess),
+        tap(() => this.toastService.success('Profile updated successfully!'))
+      ),
+    { dispatch: false }
+  );
+
+  readonly toastOnUpdateProfileFailure$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.updateProfileFailure),
+        tap(({ error }) => this.toastService.error(error.message || 'Failed to update profile'))
+      ),
+    { dispatch: false }
   );
 }
