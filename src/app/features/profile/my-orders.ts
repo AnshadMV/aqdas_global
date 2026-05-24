@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect, OnDestroy } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { OrderService, Order } from '../../core/services/order.service';
@@ -649,223 +649,123 @@ import { FormsModule } from '@angular/forms';
       box-shadow: 0 12px 28px -6px rgba(0, 168, 89, 0.4);
     }
 
-    /* ─── Invoice Modal ─── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(8px);
-      animation: fadeIn 0.2s ease-out;
-    }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    /* ─── Invoice Modal Overlay ─── */
+.invoice-modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  animation: fadeIn 0.3s ease-out;
+}
 
-    .modal-content {
-      position: relative;
-      background: var(--theme-cream);
-      border: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
-      border-radius: 2rem;
-      padding: 2.5rem;
-      max-width: 640px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.2);
-    }
+.invoice-modal-content {
+  position: relative;
+  width: 100%; max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
-    .modal-actions {
-      position: absolute;
-      right: 1.5rem;
-      top: 1.5rem;
-      display: flex;
-      gap: 0.5rem;
-    }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-    @media print {
-      .modal-actions { display: none !important; }
-    }
+/* ─── Modal Actions ─── */
+.invoice-modal-actions {
+  position: absolute; bottom: 1.25rem; right: 1.25rem;
+  display: flex; gap: 0.5rem; z-index: 10;
+}
 
-    .modal-btn {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
-      background: color-mix(in srgb, var(--theme-dark) 6%, transparent);
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--theme-dark-light);
-      transition: all 0.2s ease;
-    }
+.invoice-action-btn {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1rem; border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(15, 23, 42, 0.06);
+  font-size: 0.8rem; font-weight: 600; color: #475569;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.invoice-action-btn:hover { background: rgba(0, 168, 89, 0.08); color: #00a859; border-color: rgba(0, 168, 89, 0.2); }
+.invoice-action-btn.close { padding: 0.6rem; }
+.invoice-action-btn.close:hover { background: rgba(239, 68, 68, 0.08); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
 
-    .modal-btn:hover {
-      background: color-mix(in srgb, var(--theme-dark) 12%, transparent);
-      color: var(--theme-dark);
-    }
+/* ─── Invoice Document ─── */
+.invoice-document { padding: 3rem; }
 
-    .invoice-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding-bottom: 1.5rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
-    }
+.invoice-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 2rem; margin-bottom: 2rem;
+  border-bottom: 2px solid rgba(15, 23, 42, 0.06);
+}
+.brand-name { font-size: 2rem; font-weight: 900; color: #0f172a; letter-spacing: -0.03em; line-height: 1; }
+.brand-tagline { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.2em; color: #00a859; margin-top: 0.35rem; text-transform: uppercase; }
+.doc-title { font-size: 1rem; font-weight: 800; color: #0f172a; letter-spacing: 0.05em; text-transform: uppercase; text-align: right; }
+.doc-id { font-size: 0.85rem; font-weight: 700; color: #00a859; text-align: right; margin-top: 0.25rem; }
 
-    .invoice-brand {
-      font-size: 1.75rem;
-      font-weight: 800;
-      color: var(--theme-dark);
-      letter-spacing: -0.02em;
-    }
+/* Addresses */
+.invoice-addresses { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-bottom: 2.5rem; }
+.address-label { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.75rem; }
+.address-name { font-size: 0.95rem; font-weight: 700; color: #0f172a; margin-bottom: 0.25rem; }
+.address-text { font-size: 0.85rem; color: #64748b; line-height: 1.5; }
+.address-email { font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem; }
+.align-right { text-align: right; }
+.detail-row { display: flex; justify-content: flex-end; gap: 0.75rem; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.detail-key { color: #94a3b8; }
+.detail-val { font-weight: 600; color: #0f172a; }
+.status-pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 100px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.status-pending { background: rgba(245,158,11,0.1); color: #d97706; }
+.status-delivered { background: rgba(0,168,89,0.1); color: #00a859; }
+.status-processing { background: rgba(59,130,246,0.1); color: #2563eb; }
+.status-shipped { background: rgba(99,102,241,0.1); color: #4f46e5; }
+.status-cancelled { background: rgba(239,68,68,0.1); color: #ef4444; }
 
-    .invoice-tagline {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #94a3b8;
-      margin-top: 0.25rem;
-    }
+/* Table */
+.invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+.invoice-table th {
+  padding: 0.75rem 0; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8;
+  border-bottom: 2px solid rgba(15,23,42,0.06);
+}
+.invoice-table td { padding: 1rem 0; border-bottom: 1px solid rgba(15,23,42,0.04); font-size: 0.85rem; color: #475569; vertical-align: top; }
+.invoice-table tr:last-child td { border-bottom: none; }
+.item-name { font-weight: 700; color: #0f172a; margin-bottom: 0.15rem; }
+.item-sku { font-size: 0.7rem; color: #94a3b8; }
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.font-bold { font-weight: 700; color: #0f172a; }
 
-    .invoice-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--theme-dark);
-      text-align: right;
-    }
+/* Totals */
+.invoice-totals { display: flex; justify-content: flex-end; margin-bottom: 2.5rem; }
+.totals-grid { width: 260px; }
+.total-row { display: flex; justify-content: space-between; padding: 0.5rem 0; font-size: 0.85rem; color: #64748b; }
+.total-row.shipping .free-tag { color: #00a859; font-weight: 700; }
+.total-row.grand {
+  border-top: 2px solid rgba(15,23,42,0.08); margin-top: 0.5rem; padding-top: 0.75rem;
+  font-size: 1.1rem; font-weight: 800; color: #0f172a;
+}
+.grand-value { color: #00a859; }
 
-    .invoice-id {
-      font-size: 0.875rem;
-      font-weight: 700;
-      color: #00a859;
-      margin-top: 0.25rem;
-      text-align: right;
-    }
+/* Footer */
+.invoice-footer {
+  text-align: center; padding-top: 2rem; border-top: 1px solid rgba(15,23,42,0.06);
+  font-size: 0.7rem; color: #94a3b8; font-style: italic; line-height: 1.6;
+}
 
-    .invoice-addresses {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-      font-size: 0.8rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .address-label {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #94a3b8;
-      margin-bottom: 0.5rem;
-    }
-
-    .address-name {
-      font-weight: 700;
-      color: var(--theme-dark);
-    }
-
-    .address-text {
-      color: var(--theme-dark-light);
-      line-height: 1.5;
-    }
-
-    .invoice-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .invoice-table thead {
-      border-bottom: 2px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
-    }
-
-    .invoice-table th {
-      padding: 0.75rem 0;
-      text-align: left;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #94a3b8;
-    }
-
-    .invoice-table th.right { text-align: right; }
-    .invoice-table th.center { text-align: center; }
-
-    .invoice-table td {
-      padding: 1rem 0;
-      border-bottom: 1px solid color-mix(in srgb, var(--theme-dark) 4%, transparent);
-    }
-
-    .invoice-table td.right { text-align: right; }
-    .invoice-table td.center { text-align: center; }
-
-    .item-desc {
-      font-weight: 600;
-      color: var(--theme-dark);
-    }
-
-    .item-subdesc {
-      font-size: 0.7rem;
-      color: #94a3b8;
-      margin-top: 0.15rem;
-    }
-
-    .invoice-totals {
-      display: flex;
-      justify-content: flex-end;
-      padding-top: 1rem;
-    }
-
-    .totals-box {
-      width: 240px;
-    }
-
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem 0;
-      font-size: 0.875rem;
-      color: var(--theme-dark-light);
-    }
-
-    .total-row.shipping { color: #00a859; font-weight: 700; }
-
-    .total-row.grand {
-      border-top: 2px solid color-mix(in srgb, var(--theme-dark) 10%, transparent);
-      margin-top: 0.5rem;
-      padding-top: 0.75rem;
-      font-size: 1.125rem;
-      font-weight: 800;
-      color: var(--theme-dark);
-    }
-
-    .total-row.grand .amount { color: #00a859; }
-
-    .invoice-footer {
-      text-align: center;
-      padding-top: 2rem;
-      margin-top: 1.5rem;
-      border-top: 1px solid color-mix(in srgb, var(--theme-dark) 8%, transparent);
-      font-size: 0.7rem;
-      color: #94a3b8;
-      font-style: italic;
-    }
-
-    .invoice-footer p { margin-bottom: 0.25rem; }
+/* ─── Print Overrides ─── */
+@media print {
+  .no-print { display: none !important; }
+  body * { visibility: hidden; }
+  #invoice-receipt, #invoice-receipt * { visibility: visible; }
+  #invoice-receipt {
+    position: absolute; left: 0; top: 0; width: 100%;
+    padding: 0; margin: 0; background: #fff;
+  }
+  .invoice-modal-overlay { position: absolute; background: transparent; backdrop-filter: none; padding: 0; }
+  .invoice-modal-content { box-shadow: none; border-radius: 0; max-height: none; overflow: visible; }
+  .status-pill { border: 1px solid currentColor; background: transparent !important; }
+}
   `,
   template: `
     <div>
@@ -1060,113 +960,111 @@ import { FormsModule } from '@angular/forms';
         </div>
       }
 
-      <!-- Invoice Modal -->
-      @if (activeInvoiceOrder()) {
-        <div class="modal-overlay">
-          <div class="modal-content">
-            <div class="modal-actions no-print">
-              <button (click)="printInvoice()" class="modal-btn" aria-label="Print Invoice">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-              </button>
-              <button (click)="closeInvoice()" class="modal-btn" aria-label="Close modal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+        <!-- Premium Invoice Modal -->
+  @if (activeInvoiceOrder()) {
+    <div class="invoice-modal-overlay" (click)="closeInvoice()">
+      <div class="invoice-modal-content" (click)="$event.stopPropagation()">
+        
+        <!-- Modal Actions (Hidden on Print) -->
+        <div class="invoice-modal-actions no-print">
+          <button (click)="printInvoice()" class="invoice-action-btn" aria-label="Print Invoice">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Print</span>
+          </button>
+          <button (click)="closeInvoice()" class="invoice-action-btn close" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Printable Invoice Document -->
+        <div id="invoice-receipt" class="invoice-document">
+          
+          <!-- Header -->
+          <div class="invoice-header">
+            <div class="invoice-brand">
+              <h2 class="brand-name">AQDAS</h2>
+              <p class="brand-tagline">PREMIUM KERALA SPICES</p>
             </div>
+            <div class="invoice-meta">
+              <h3 class="doc-title">INVOICE RECEIPT</h3>
+              <p class="doc-id">#{{ activeInvoiceOrder()!.id }}</p>
+            </div>
+          </div>
 
-            <div id="invoice-receipt">
-              <!-- Invoice Header -->
-              <div class="invoice-header">
-                <div>
-                  <h2 class="invoice-brand">AQDAS</h2>
-                  <p class="invoice-tagline">Premium Kerala Cardamom & Spices</p>
-                </div>
-                <div>
-                  <h3 class="invoice-title">Invoice Receipt</h3>
-                  <p class="invoice-id">#{{ activeInvoiceOrder()!.id }}</p>
-                </div>
+          <!-- Address Grid -->
+          <div class="invoice-addresses">
+            <div class="address-block">
+              <p class="address-label">BILLED TO</p>
+              <p class="address-name">{{ activeInvoiceOrder()!.customerName }}</p>
+              <p class="address-text">{{ activeInvoiceOrder()!.shippingAddress.address }}</p>
+              <p class="address-text">{{ activeInvoiceOrder()!.shippingAddress.city }}, {{ activeInvoiceOrder()!.shippingAddress.postalCode }}</p>
+              <p class="address-email">{{ activeInvoiceOrder()!.customerEmail }}</p>
+            </div>
+            <div class="address-block align-right">
+              <p class="address-label">TRANSACTION DETAILS</p>
+              <div class="detail-row"><span class="detail-key">Order Date:</span> <span class="detail-val">{{ activeInvoiceOrder()!.createdAt | date:'mediumDate' }}</span></div>
+              <div class="detail-row"><span class="detail-key">Payment:</span> <span class="detail-val">Cash on Delivery</span></div>
+              <div class="detail-row"><span class="detail-key">Status:</span> <span class="detail-val status-pill" [class]="'status-' + activeInvoiceOrder()!.status.toLowerCase()">{{ activeInvoiceOrder()!.status }}</span></div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th class="text-left">Item Description</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of activeInvoiceOrder()!.items; track item.productId) {
+                <tr>
+                  <td>
+                    <p class="item-name">{{ item.name }}</p>
+                    <p class="item-sku">Size: {{ item.weight || '250g' }}</p>
+                  </td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <td class="text-right">{{ item.price | currency:'INR':'symbol':'1.0-0' }}</td>
+                  <td class="text-right font-bold">{{ item.price * item.quantity | currency:'INR':'symbol':'1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <!-- Totals -->
+          <div class="invoice-totals">
+            <div class="totals-grid">
+              <div class="total-row">
+                <span>Subtotal</span>
+                <span>{{ activeInvoiceOrder()!.total | currency:'INR':'symbol':'1.0-0' }}</span>
               </div>
-
-              <!-- Addresses -->
-              <div class="invoice-addresses">
-                <div>
-                  <p class="address-label">Billed To:</p>
-                  <p class="address-name">{{ activeInvoiceOrder()!.customerName }}</p>
-                  <p class="address-text">{{ activeInvoiceOrder()!.shippingAddress.address }}</p>
-                  <p class="address-text">{{ activeInvoiceOrder()!.shippingAddress.city }} - {{ activeInvoiceOrder()!.shippingAddress.postalCode }}</p>
-                  <p class="address-text" style="margin-top:0.5rem;color:#94a3b8;">Email: {{ activeInvoiceOrder()!.customerEmail }}</p>
-                </div>
-
-                <div style="text-align:right;">
-                  <p class="address-label">Transaction Details:</p>
-                  <p class="address-text"><span style="font-weight:600;color:#0f172a;">Order Date:</span> {{ activeInvoiceOrder()!.createdAt | date:'mediumDate' }}</p>
-                  <p class="address-text"><span style="font-weight:600;color:#0f172a;">Payment Status:</span> Cash on Delivery</p>
-                  <p class="address-text"><span style="font-weight:600;color:#0f172a;">Fulfillment:</span> {{ activeInvoiceOrder()!.status }}</p>
-                </div>
+              <div class="total-row shipping">
+                <span>Shipping Charges</span>
+                <span class="free-tag">FREE</span>
               </div>
-
-              <!-- Table -->
-              <table class="invoice-table">
-                <thead>
-                  <tr>
-                    <th>Item Description</th>
-                    <th class="center">Qty</th>
-                    <th class="right">Unit Price</th>
-                    <th class="right">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (item of activeInvoiceOrder()!.items; track item.productId) {
-                    <tr>
-                      <td>
-                        <p class="item-desc">{{ item.name }}</p>
-                        <p class="item-subdesc">Package Size: {{ item.weight || '250g' }}</p>
-                      </td>
-                      <td class="center">{{ item.quantity }}</td>
-                      <td class="right">{{ item.price | currency:'INR':'symbol':'1.0-0' }}</td>
-                      <td class="right" style="font-weight:600;">{{ item.price * item.quantity | currency:'INR':'symbol':'1.0-0' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-
-              <!-- Totals -->
-              <div class="invoice-totals">
-                <div class="totals-box">
-                  <div class="total-row">
-                    <span>Subtotal:</span>
-                    <span>{{ activeInvoiceOrder()!.total | currency:'INR':'symbol':'1.0-0' }}</span>
-                  </div>
-                  <div class="total-row shipping">
-                    <span>Shipping Charges:</span>
-                    <span>FREE</span>
-                  </div>
-                  <div class="total-row grand">
-                    <span>Amount Due:</span>
-                    <span class="amount">{{ activeInvoiceOrder()!.total | currency:'INR':'symbol':'1.0-0' }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Footer -->
-              <div class="invoice-footer">
-                <p>Thank you for buying Kerala's finest organic cardamoms & spices. We appreciate your premium business!</p>
-                <p>For support, reach out to support&#64;aqdas-spices.com or via WhatsApp helpline.</p>
+              <div class="total-row grand">
+                <span>Amount Due</span>
+                <span class="grand-value">{{ activeInvoiceOrder()!.total | currency:'INR':'symbol':'1.0-0' }}</span>
               </div>
             </div>
           </div>
+
+          <!-- Footer -->
+          <div class="invoice-footer">
+            <p>Thank you for choosing AQDAS Premium Spices.</p>
+            <p>Support: support&#64;aqdas-spices.com | WhatsApp: +91 98765 43210</p>
+          </div>
         </div>
+      </div>
+    </div>
+  
       }
     </div>
   `,
 })
-export class MyOrdersComponent {
+export class MyOrdersComponent implements OnDestroy {
   private readonly store = inject(Store);
   private readonly orderService = inject(OrderService);
   private readonly toastService = inject(ToastService);
@@ -1278,13 +1176,19 @@ export class MyOrdersComponent {
 
   openInvoice(order: Order): void {
     this.activeInvoiceOrder.set(order);
+    document.body.classList.add('modal-open');
   }
 
   closeInvoice(): void {
     this.activeInvoiceOrder.set(null);
+    document.body.classList.remove('modal-open');
   }
 
   printInvoice(): void {
     window.print();
+  }
+
+  ngOnDestroy(): void {
+    document.body.classList.remove('modal-open');
   }
 }

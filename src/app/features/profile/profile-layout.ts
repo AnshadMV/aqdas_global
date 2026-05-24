@@ -47,7 +47,6 @@ import { UpperCasePipe } from '@angular/common';
       margin: 0 auto;
       padding: 5rem 1.5rem;
       position: relative;
-      z-index: 10;
     }
 
     @media (min-width: 640px) {
