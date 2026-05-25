@@ -1,14 +1,16 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import { NgOptimizedImage } from '@angular/common';
 import { ProductActions } from '../../store/product/product.actions';
-import { selectActiveProducts, selectProductLoading } from '../../store/product/product.selectors';
+import { selectActiveProducts, selectProductLoading, selectProductCategories } from '../../store/product/product.selectors';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { CartActions } from '../../store/cart/cart.actions';
 import type { Product, CartItem } from '../../shared/models';
+import { SettingsService } from '../../core/services/settings.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-shop',
@@ -184,7 +186,7 @@ import type { Product, CartItem } from '../../shared/models';
         </div>
 
         <div class="categories-wrap">
-          @for (cat of categories; track cat) {
+          @for (cat of categories(); track cat) {
             <button 
               (click)="selectedCategory.set(cat)"
               class="cat-btn"
@@ -210,37 +212,80 @@ import type { Product, CartItem } from '../../shared/models';
         } @else {
           <div class="products-grid">
             @for (product of filteredProducts(); track product.id) {
-              <div class="product-card">
-                <a [routerLink]="['/shop', product.id]" class="card-img-wrap">
-                  <img [ngSrc]="product.imageUrl" [alt]="product.name" class="card-img" fill />
-                  @if (product.badge) {
-                    <span class="card-badge">{{ product.badge }}</span>
-                  }
-                </a>
-                <div class="card-body">
-                  <a [routerLink]="['/shop', product.id]" class="card-title">{{ product.name }}</a>
-                  <p class="card-desc">{{ product.shortDescription }}</p>
-                  
-                  <div class="card-rating">
-                    @for (s of [1,2,3,4,5]; track s) {
-                      <svg class="star-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" [attr.fill]="s <= product.rating ? 'currentColor' : 'none'" [attr.stroke]="s <= product.rating ? 'currentColor' : 'color-mix(in srgb, var(--theme-dark) 15%, transparent)'" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    }
-                    <span class="rating-count">({{ product.reviews }})</span>
-                  </div>
-
-                  <div class="card-footer">
-                    <div class="price-wrap">
-                      <span class="price-current">₹{{ product.price }}</span>
-                      @if (product.originalPrice > product.price) {
-                        <span class="price-original">₹{{ product.originalPrice }}</span>
-                      }
+              @if (isWholesale()) {
+                <!-- B2B Wholesale Card Layout -->
+                <div class="product-card b2b-card" style="border: 1px solid rgba(251, 191, 36, 0.35); background: linear-gradient(135deg, var(--theme-cream), rgba(251, 191, 36, 0.02));">
+                  <a [routerLink]="['/shop', product.id]" class="card-img-wrap" style="background: rgba(251, 191, 36, 0.05);">
+                    <img [ngSrc]="product.imageUrl" [alt]="product.name" class="card-img" fill />
+                    <span class="card-badge" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e293b; font-weight: 800; border: 1px solid rgba(255,255,255,0.25);">5KG BULK PACK</span>
+                  </a>
+                  <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; gap: 0.5rem;">
+                      <a [routerLink]="['/shop', product.id]" class="card-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0; line-height: 1.25;">{{ product.name }}</a>
+                      <span style="font-size: 0.65rem; font-weight: 800; color: #b58a13; background: rgba(251, 191, 36, 0.12); padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(251, 191, 36, 0.18); white-space: nowrap;">B2B WHOLESALE</span>
                     </div>
-                    <button (click)="addToCart(product)" class="add-cart-btn" [attr.aria-label]="'Add ' + product.name + ' to cart'">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-                    </button>
+                    <p class="card-desc" style="font-size: 0.8rem; margin-bottom: 1rem;">{{ product.shortDescription }}</p>
+                    
+                    <div style="background: rgba(15, 23, 42, 0.03); border: 1px solid rgba(15, 23, 42, 0.04); border-radius: 0.75rem; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; font-size: 0.75rem; color: var(--theme-dark-light); font-weight: 600; line-height: 1.5;">
+                      📦 Packaging: <strong>5 kg commercial crate</strong><br>
+                      📈 Tier: flat 20% B2B discount applied
+                    </div>
+
+                    <div class="card-footer" style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                      <div class="price-wrap">
+                        <span style="font-size: 0.6rem; font-weight: 700; color: #b58a13; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.15rem; display: block;">Wholesale Price</span>
+                        <span class="price-current" style="color: #b58a13; font-weight: 800; font-size: 1.35rem;">₹{{ getWholesalePrice(product.price) }}</span>
+                        <span style="font-size: 0.7rem; color: var(--theme-dark-light); opacity: 0.8; text-decoration: line-through; margin-top: 0.15rem; display: block;">Retail: ₹{{ product.price * 50 }}</span>
+                      </div>
+                      
+                      <!-- Bulk Qty Selector and Cart Add -->
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; border: 1px solid rgba(251,191,36,0.35); border-radius: 0.75rem; overflow: hidden; background: white; height: 2.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+                          <button (click)="changeBulkQty(product.id, -1)" style="width: 1.75rem; height: 100%; border: none; cursor: pointer; background: transparent; font-weight: bold; color: #b58a13; display: flex; align-items: center; justify-content: center; font-size: 1rem;" type="button">-</button>
+                          <span style="width: 1.75rem; text-align: center; font-size: 0.85rem; font-weight: bold; color: #1e293b; display: flex; align-items: center; justify-content: center;">{{ getBulkQty(product.id) }}</span>
+                          <button (click)="changeBulkQty(product.id, 1)" style="width: 1.75rem; height: 100%; border: none; cursor: pointer; background: transparent; font-weight: bold; color: #b58a13; display: flex; align-items: center; justify-content: center; font-size: 1rem;" type="button">+</button>
+                        </div>
+                        <button (click)="addToCart(product)" class="add-cart-btn" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: transparent; color: #1e293b; width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(251,191,36,0.3);" [attr.aria-label]="'Add bulk ' + product.name + ' to cart'" type="button">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              } @else {
+                <!-- Standard Normal Product Card -->
+                <div class="product-card">
+                  <a [routerLink]="['/shop', product.id]" class="card-img-wrap">
+                    <img [ngSrc]="product.imageUrl" [alt]="product.name" class="card-img" fill />
+                    @if (product.badge) {
+                      <span class="card-badge">{{ product.badge }}</span>
+                    }
+                  </a>
+                  <div class="card-body">
+                    <a [routerLink]="['/shop', product.id]" class="card-title">{{ product.name }}</a>
+                    <p class="card-desc">{{ product.shortDescription }}</p>
+                    
+                    <div class="card-rating">
+                      @for (s of [1,2,3,4,5]; track s) {
+                        <svg class="star-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" [attr.fill]="s <= product.rating ? 'currentColor' : 'none'" [attr.stroke]="s <= product.rating ? 'currentColor' : 'color-mix(in srgb, var(--theme-dark) 15%, transparent)'" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      }
+                      <span class="rating-count">({{ product.reviews }})</span>
+                    </div>
+
+                    <div class="card-footer">
+                      <div class="price-wrap">
+                        <span class="price-current">₹{{ product.price }}</span>
+                        @if (product.originalPrice > product.price) {
+                          <span class="price-original">₹{{ product.originalPrice }}</span>
+                        }
+                      </div>
+                      <button (click)="addToCart(product)" class="add-cart-btn" [attr.aria-label]="'Add ' + product.name + ' to cart'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
             }
             
             @if (filteredProducts().length === 0) {
@@ -263,15 +308,39 @@ export class ShopComponent implements OnInit {
   private readonly store = inject(Store);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
+  private readonly settingsService = inject(SettingsService);
+  private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
   
   readonly products = this.store.selectSignal(selectActiveProducts);
   readonly loading = this.store.selectSignal(selectProductLoading);
   private readonly user = this.store.selectSignal(selectCurrentUser);
   
-  readonly categories = ['All', 'Spices', 'Masalas', 'Teas'];
+  private readonly dbCategories = this.store.selectSignal(selectProductCategories);
+  readonly categories = computed(() => ['All', ...this.dbCategories()]);
   readonly searchQuery = signal('');
   readonly selectedCategory = signal('All');
   readonly sortOption = signal('newest');
+
+  // Wholesale Mode helpers
+  readonly isWholesale = computed(() => this.settingsService.settings().userType === 'wholesale');
+  readonly bulkQuantities = signal<Record<string, number>>({});
+
+  getWholesalePrice(retailPrice: number): number {
+    return Math.round(retailPrice * 50 * 0.8);
+  }
+
+  getBulkQty(productId: string): number {
+    return this.bulkQuantities()[productId] ?? 1;
+  }
+
+  changeBulkQty(productId: string, val: number): void {
+    this.bulkQuantities.update(q => {
+      const current = q[productId] ?? 1;
+      const next = Math.max(1, current + val);
+      return { ...q, [productId]: next };
+    });
+  }
 
   readonly filteredProducts = computed(() => {
     let result = this.products();
@@ -310,10 +379,27 @@ export class ShopComponent implements OnInit {
   }
 
   addToCart(product: Product): void {
+    if (!this.user()) {
+      this.toast.show('Please sign in to access your cart!', 'info');
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    const isWholesale = this.isWholesale();
+    const price = isWholesale ? this.getWholesalePrice(product.price) : product.price;
+    const qty = isWholesale ? this.getBulkQty(product.id) : 1;
+    const weight = isWholesale ? '5kg Bulk Crate' : (product.weight || '100g');
+    const name = product.name + (isWholesale ? ' (Bulk Box)' : '');
+
     const item: CartItem = {
-      productId: product.id, name: product.name, imageUrl: product.imageUrl,
-      price: product.price, quantity: 1, weight: product.weight,
+      productId: product.id,
+      name: name,
+      imageUrl: product.imageUrl,
+      price: price,
+      quantity: qty,
+      weight: weight,
     };
     this.store.dispatch(CartActions.addToCart({ item, uid: this.user()?.uid ?? null }));
+    this.toast.success(`${qty} x ${name} added to cart!`);
   }
 }

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, computed } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { RouterLink } from '@angular/router';
 import { NgOptimizedImage } from '@angular/common';
@@ -7,6 +7,8 @@ import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { WishlistActions } from '../../store/wishlist/wishlist.actions';
 import { CartActions } from '../../store/cart/cart.actions';
 import type { WishlistItem, CartItem } from '../../shared/models';
+import { SettingsService } from '../../core/services/settings.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-wishlist',
@@ -278,8 +280,17 @@ import type { WishlistItem, CartItem } from '../../shared/models';
 
       <div class="wishlist-container">
         <div class="wishlist-header">
+          @if (isWholesale()) {
+            <span class="b2b-badge" style="font-size: 0.65rem; font-weight: 800; color: #b58a13; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.2); padding: 0.25rem 0.65rem; border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5rem; display: inline-block;">B2B Wholesale Mode</span>
+          }
           <h1 class="wishlist-title">My Wishlist</h1>
           <p class="wishlist-subtitle">Products you've saved for later</p>
+          
+          @if (isWholesale() && items().length > 0) {
+            <button (click)="requestQuote()" class="btn-quote" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(135deg, #fbbf24, #f59e0b); border: none; color: #1e293b; padding: 0.65rem 1.5rem; border-radius: 100px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.3s; margin-top: 0.75rem; box-shadow: 0 4px 12px rgba(251,191,36,0.3);" type="button">
+              📋 Convert Wishlist to Commercial B2B Quotation
+            </button>
+          }
         </div>
 
         @if (items().length === 0) {
@@ -291,7 +302,7 @@ import type { WishlistItem, CartItem } from '../../shared/models';
             </div>
             <h2 class="empty-title">Your wishlist is empty</h2>
             <p class="empty-desc">Save products you love for later</p>
-            <a routerLink="/shop" class="empty-btn">
+            <a routerLink="/shop" class="empty-btn" [style.background]="isWholesale() ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'linear-gradient(135deg, #00a859, #16a34a)'" [style.color]="isWholesale() ? '#1e293b' : 'white'">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
@@ -301,7 +312,7 @@ import type { WishlistItem, CartItem } from '../../shared/models';
         } @else {
           <div class="wishlist-grid">
             @for (item of items(); track item.productId) {
-              <div class="wishlist-card">
+              <div class="wishlist-card" [style.border-color]="isWholesale() ? 'rgba(251,191,36,0.2)' : ''">
                 <div class="card-image-wrap">
                   <img [ngSrc]="item.imageUrl" [alt]="item.name" fill class="card-image" />
                   <button (click)="removeItem(item.productId)" class="remove-btn" aria-label="Remove from wishlist">
@@ -309,25 +320,28 @@ import type { WishlistItem, CartItem } from '../../shared/models';
                       <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
                     </svg>
                   </button>
+                  @if (isWholesale()) {
+                    <span style="position: absolute; bottom: 1rem; left: 1rem; font-size: 0.65rem; font-weight: 800; background: #fbbf24; color: #1e293b; padding: 3px 8px; border-radius: 100px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">B2B WHOLESALE</span>
+                  }
                 </div>
 
                 <div class="card-body">
                   <h3 class="card-name">{{ item.name }}</h3>
 
                   <div class="card-price-wrap">
-                    <span class="card-price">₹{{ item.price }}</span>
+                    <span class="card-price" [style.color]="isWholesale() ? '#b58a13' : '#00a859'">₹{{ item.price }}</span>
                     @if (item.originalPrice > item.price) {
                       <span class="card-original">₹{{ item.originalPrice }}</span>
                     }
                   </div>
 
-                  <button (click)="moveToCart(item)" class="move-cart-btn">
+                  <button (click)="moveToCart(item)" class="move-cart-btn" [style.background]="isWholesale() ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'linear-gradient(135deg, #00a859, #16a34a)'" [style.color]="isWholesale() ? '#1e293b' : 'white'" [style.box-shadow]="isWholesale() ? '0 8px 20px -6px rgba(251, 191, 36, 0.3)' : ''">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <circle cx="8" cy="21" r="1"/>
                       <circle cx="19" cy="21" r="1"/>
                       <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
                     </svg>
-                    Move to Cart
+                    Move to Bulk Cart
                   </button>
                 </div>
               </div>
@@ -340,23 +354,35 @@ import type { WishlistItem, CartItem } from '../../shared/models';
 })
 export class WishlistComponent {
   private readonly store = inject(Store);
+  private readonly settingsService = inject(SettingsService);
+  private readonly toast = inject(ToastService);
+
   readonly items = this.store.selectSignal(selectWishlistItems);
   private readonly user = this.store.selectSignal(selectCurrentUser);
+
+  readonly isWholesale = computed(() => this.settingsService.settings().userType === 'wholesale');
+
+  requestQuote(): void {
+    this.toast.success('B2B Quotation Generated! A pro-forma quote PDF has been sent to your wholesale email account.');
+  }
 
   removeItem(productId: string): void {
     this.store.dispatch(WishlistActions.removeFromWishlist({ productId, uid: this.user()?.uid ?? null }));
   }
 
   moveToCart(item: WishlistItem): void {
+    const isWholesale = this.isWholesale();
+    const weight = isWholesale ? '5kg Bulk Crate' : '';
     const cartItem: CartItem = {
       productId: item.productId,
-      name: item.name,
+      name: item.name + (isWholesale && !item.name.includes('(Bulk Box)') ? ' (Bulk Box)' : ''),
       imageUrl: item.imageUrl,
       price: item.price,
       quantity: 1,
-      weight: '',
+      weight: weight,
     };
     this.store.dispatch(CartActions.addToCart({ item: cartItem, uid: this.user()?.uid ?? null }));
     this.removeItem(item.productId);
+    this.toast.success(`${cartItem.name} moved to cart!`);
   }
 }

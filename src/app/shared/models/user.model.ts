@@ -8,6 +8,7 @@ export interface User {
   photoURL: string | null;
   emailVerified: boolean;
   role?: 'admin' | 'user';
+  userType?: 'normal' | 'wholesale';
   phoneNumber?: string;
   shippingAddress?: {
     address: string;

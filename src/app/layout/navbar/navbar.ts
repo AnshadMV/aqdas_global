@@ -364,6 +364,9 @@ import { SettingsService } from '../../core/services/settings.service';
               <span class="logo-text">AQDAS</span>
               <span class="logo-tag">Global</span>
             </div>
+            @if (isWholesale()) {
+              <span style="font-size: 0.65rem; font-weight: 800; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e293b; padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.25); letter-spacing: 0.05em; margin-left: 0.25rem; box-shadow: 0 4px 8px rgba(251,191,36,0.15); display: inline-block;">B2B WHOLESALE</span>
+            }
           </a>
 
           <!-- Desktop Navigation -->
@@ -565,6 +568,7 @@ export class NavbarComponent {
   readonly mobileMenuOpen = signal(false);
   readonly showUserMenu = signal(false);
   readonly isDarkMode = computed(() => this.settingsService.settings().theme === 'dark');
+  readonly isWholesale = computed(() => this.settingsService.settings().userType === 'wholesale');
   readonly searchQuery = signal('');
   readonly searchFocused = signal(false);
   readonly isSearchExpanded = signal(false);

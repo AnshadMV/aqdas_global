@@ -1,10 +1,12 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { RouterLink } from '@angular/router';
 import { NgOptimizedImage } from '@angular/common';
 import { selectCartItems, selectCartTotal, selectCartCount } from '../../store/cart/cart.selectors';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { CartActions } from '../../store/cart/cart.actions';
+import { SettingsService } from '../../core/services/settings.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-cart',
@@ -431,6 +433,195 @@ import { CartActions } from '../../store/cart/cart.actions';
       transform: translateY(-3px);
       box-shadow: 0 12px 32px -8px rgba(0, 168, 89, 0.5);
     }
+
+    /* B2B Wholesale Specific CSS */
+    .b2b-badge {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #b58a13;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      padding: 0.25rem 0.65rem;
+      border-radius: 100px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+
+    .b2b-moq-alert {
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      background: rgba(251, 191, 36, 0.05);
+      border-radius: 1rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+      color: #b58a13;
+      line-height: 1.5;
+    }
+
+    .b2b-moq-title {
+      font-weight: 800;
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .b2b-metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--theme-dark-light);
+      margin-top: 0.5rem;
+      border-top: 1px dashed color-mix(in srgb, var(--theme-dark) 8%, transparent);
+      padding-top: 0.5rem;
+    }
+
+    .b2b-metric-val {
+      font-weight: 700;
+      color: var(--theme-dark);
+    }
+
+    .btn-invoice {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px dashed rgba(251, 191, 36, 0.5);
+      background: rgba(251, 191, 36, 0.03);
+      color: #b58a13;
+      border-radius: 1rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: all 0.2s;
+    }
+
+    .btn-invoice:hover {
+      background: rgba(251, 191, 36, 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* Invoice Modal Styles */
+    .invoice-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .invoice-content {
+      width: min(100%, 42rem);
+      max-height: calc(100vh - 4rem);
+      background: white;
+      border-radius: 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #1e293b;
+    }
+
+    .invoice-header {
+      padding: 1.5rem;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .invoice-body {
+      padding: 2rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .invoice-table th, .invoice-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .invoice-table th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .invoice-footer-actions {
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      background: #f8fafc;
+    }
+
+    .invoice-btn-print {
+      background: #0f172a;
+      color: white;
+      border: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .invoice-btn-close {
+      border: 1px solid #cbd5e1;
+      background: white;
+      color: #475569;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .invoice-modal, .invoice-modal * {
+        visibility: visible;
+      }
+      .invoice-modal {
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%;
+        background: white;
+        padding: 0;
+      }
+      .invoice-footer-actions {
+        display: none;
+      }
+    }
   `,
   template: `
     <section class="cart-section">
@@ -439,6 +630,9 @@ import { CartActions } from '../../store/cart/cart.actions';
 
       <div class="cart-container">
         <div class="cart-header">
+          @if (isWholesale()) {
+            <span class="b2b-badge">B2B Wholesale Account Active</span>
+          }
           <h1 class="cart-title">Shopping Cart</h1>
           <p class="cart-subtitle">Review your selected premium spices before checkout</p>
         </div>
@@ -501,7 +695,16 @@ import { CartActions } from '../../store/cart/cart.actions';
 
             <!-- Order Summary -->
             <div class="order-summary">
-              <h3 class="summary-title">Order Summary</h3>
+              <h3 class="summary-title">{{ isWholesale() ? 'B2B Wholesale Summary' : 'Order Summary' }}</h3>
+
+              @if (isWholesale() && !isMoqSatisfied()) {
+                <div class="b2b-moq-alert">
+                  <div class="b2b-moq-title">
+                    ⚠️ Minimum Order Not Met
+                  </div>
+                  Wholesale accounts require a minimum order value of <strong>₹5,000</strong> or total weight of <strong>10 kg</strong>. Current: ₹{{ total() }} / {{ totalWeight() }} kg.
+                </div>
+              }
 
               <div class="summary-rows">
                 <div class="summary-row">
@@ -510,37 +713,193 @@ import { CartActions } from '../../store/cart/cart.actions';
                 </div>
                 <div class="summary-row">
                   <span class="summary-label">Shipping</span>
-                  <span class="summary-value free">Free</span>
+                  <span class="summary-value free">Free Freight Cargo</span>
                 </div>
+                
+                @if (isWholesale()) {
+                  <div class="b2b-metric-row">
+                    <span>Total Order Weight</span>
+                    <span class="b2b-metric-val">{{ totalWeight() }} kg</span>
+                  </div>
+                  <div class="b2b-metric-row">
+                    <span>Estimated Shipping Crates</span>
+                    <span class="b2b-metric-val">{{ crateCount() }} Crate(s)</span>
+                  </div>
+                  <div class="b2b-metric-row">
+                    <span>GST (5% Inclusive)</span>
+                    <span class="b2b-metric-val">₹{{ getGstAmount() }}</span>
+                  </div>
+                }
               </div>
 
               <div class="summary-divider"></div>
 
               <div class="summary-total">
                 <span class="total-label">Total</span>
-                <span class="total-value">₹{{ total() }}</span>
+                <span class="total-value" [style.color]="isWholesale() ? '#b58a13' : '#00a859'">₹{{ total() }}</span>
               </div>
 
-              <a routerLink="/checkout" class="checkout-btn">
-                Proceed to Checkout
-              </a>
+              @if (isMoqSatisfied()) {
+                <a routerLink="/checkout" class="checkout-btn" [style.background]="isWholesale() ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'linear-gradient(135deg, #00a859, #16a34a)'" [style.color]="isWholesale() ? '#1e293b' : 'white'">
+                  Proceed to Checkout
+                </a>
+              } @else {
+                <button class="checkout-btn" disabled style="opacity: 0.5; cursor: not-allowed; background: #64748b; color: white;" type="button">
+                  Proceed to Checkout
+                </button>
+              }
 
               <a routerLink="/shop" class="continue-link">
                 Continue Shopping
               </a>
+
+              @if (isWholesale()) {
+                <button (click)="showInvoiceModal.set(true)" class="btn-invoice" type="button">
+                  📋 Generate Commercial Pro Forma Invoice
+                </button>
+              }
             </div>
           </div>
         }
       </div>
     </section>
+
+    <!-- Commercial Invoice Modal Overlay -->
+    @if (showInvoiceModal() && isWholesale()) {
+      <div class="invoice-modal" role="dialog" aria-modal="true">
+        <div class="invoice-content">
+          <div class="invoice-header">
+            <h3 style="font-weight: 800; font-size: 1.15rem; margin: 0;">B2B Commercial Pro Forma Invoice</h3>
+            <span style="font-size: 0.75rem; font-weight: 600; opacity: 0.85;">AQDAS GLOBAL SPICES CO.</span>
+          </div>
+          <div class="invoice-body">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem;">
+              <div>
+                <h4 style="font-weight: 800; font-size: 0.9rem; color: #0f172a; margin-bottom: 0.25rem;">Seller Details</h4>
+                <p style="font-size: 0.75rem; color: #475569; line-height: 1.4;">
+                  AQDAS Premium Spices Ltd.<br>
+                  Cochin Port Terminal, Spices Zone Area<br>
+                  Ernakulam, Kerala - 682003
+                </p>
+              </div>
+              <div style="text-align: right;">
+                <h4 style="font-weight: 800; font-size: 0.9rem; color: #0f172a; margin-bottom: 0.25rem;">Buyer Details</h4>
+                <p style="font-size: 0.75rem; color: #475569; line-height: 1.4;">
+                  B2B Wholesale Account<br>
+                  Client ID: {{ user()?.uid?.substring(0,8) || 'GUEST' }}<br>
+                  Email: {{ user()?.email }}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h4 style="font-weight: 800; font-size: 0.9rem; color: #0f172a; margin-bottom: 0.75rem;">Itemized Spices (Bulk Shipments)</h4>
+              <table class="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Item Description</th>
+                    <th>Packaging Crate</th>
+                    <th>Unit Wholesale Rate</th>
+                    <th>Crate Qty</th>
+                    <th style="text-align: right;">Subtotal (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of items(); track item.productId) {
+                    <tr>
+                      <td style="font-weight: 700; color: #0f172a;">{{ item.name }}</td>
+                      <td>{{ item.weight }}</td>
+                      <td>₹{{ item.price }}</td>
+                      <td style="font-weight: 700;">{{ item.quantity }}</td>
+                      <td style="text-align: right; font-weight: 700; color: #0f172a;">₹{{ item.price * item.quantity }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; width: 100%; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+              <div style="display: flex; width: 16rem; justify-content: space-between; font-size: 0.8rem; color: #475569;">
+                <span>Total Shipping Weight:</span>
+                <span style="font-weight: 700; color: #0f172a;">{{ totalWeight() }} kg</span>
+              </div>
+              <div style="display: flex; width: 16rem; justify-content: space-between; font-size: 0.8rem; color: #475569;">
+                <span>Estimated Cargo Volumes:</span>
+                <span style="font-weight: 700; color: #0f172a;">{{ crateCount() }} Crate(s)</span>
+              </div>
+              <div style="display: flex; width: 16rem; justify-content: space-between; font-size: 0.8rem; color: #475569;">
+                <span>GST (5% Inclusive):</span>
+                <span style="font-weight: 700; color: #0f172a;">₹{{ getGstAmount() }}</span>
+              </div>
+              <div style="display: flex; width: 16rem; justify-content: space-between; font-size: 1.1rem; color: #0f172a; font-weight: 800; border-top: 1px solid #cbd5e1; padding-top: 0.5rem; margin-top: 0.25rem;">
+                <span>Invoice Total:</span>
+                <span style="color: #b58a13;">₹{{ total() }}</span>
+              </div>
+            </div>
+
+            <div style="background: #f8fafc; border-radius: 0.75rem; padding: 0.75rem 1rem; font-size: 0.7rem; color: #64748b; line-height: 1.5; border: 1px dashed #cbd5e1;">
+              <strong>B2B Terms Notice</strong>: This is a system-generated commercial invoice estimate for custom freight clearance. Payment terms: Spices will be dispatched upon payment realization (Direct bank transfer or checkout authorization).
+            </div>
+          </div>
+          <div class="invoice-footer-actions">
+            <button (click)="showInvoiceModal.set(false)" class="invoice-btn-close" type="button">Close</button>
+            <button (click)="printInvoice()" class="invoice-btn-print" type="button">
+              🖨️ Print / Save PDF Invoice
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class CartComponent {
   private readonly store = inject(Store);
+  private readonly settingsService = inject(SettingsService);
+  private readonly toast = inject(ToastService);
+
   readonly items = this.store.selectSignal(selectCartItems);
   readonly total = this.store.selectSignal(selectCartTotal);
   readonly count = this.store.selectSignal(selectCartCount);
-  private readonly user = this.store.selectSignal(selectCurrentUser);
+  readonly user = this.store.selectSignal(selectCurrentUser);
+
+  // B2B Wholesale signals and computations
+  readonly isWholesale = computed(() => this.settingsService.settings().userType === 'wholesale');
+  readonly showInvoiceModal = signal(false);
+
+  readonly totalWeight = computed(() => {
+    let wt = 0;
+    for (const item of this.items()) {
+      if (item.weight?.includes('5kg') || this.isWholesale()) {
+        wt += item.quantity * 5;
+      } else if (item.weight?.includes('10kg')) {
+        wt += item.quantity * 10;
+      } else {
+        wt += item.quantity * 0.1; // 100g = 0.1kg
+      }
+    }
+    return parseFloat(wt.toFixed(2));
+  });
+
+  readonly crateCount = computed(() => {
+    return Math.ceil(this.totalWeight() / 5);
+  });
+
+  readonly isMoqSatisfied = computed(() => {
+    if (!this.isWholesale()) return true;
+    // Wholesale MOQ: Minimum ₹5,000 OR 10 kg total
+    return this.total() >= 5000 || this.totalWeight() >= 10;
+  });
+
+  getGstAmount(): string {
+    // 5% GST is included in spices pricing
+    const price = this.total();
+    const gst = price - (price / 1.05);
+    return gst.toFixed(2);
+  }
+
+  printInvoice(): void {
+    window.print();
+  }
 
   updateQty(productId: string, quantity: number): void {
     this.store.dispatch(CartActions.updateQuantity({ productId, quantity }));

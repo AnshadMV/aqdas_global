@@ -106,7 +106,7 @@ export class AuthService {
   }
 
   /** Update user profile in Firestore and Firebase Auth */
-  updateUserProfile(uid: string, data: { displayName?: string; photoURL?: string; phoneNumber?: string; shippingAddress?: any }): Observable<void> {
+  updateUserProfile(uid: string, data: { displayName?: string; photoURL?: string; phoneNumber?: string; shippingAddress?: any; userType?: 'normal' | 'wholesale' }): Observable<void> {
     const userRef = doc(firestore, 'users', uid);
     const promises: Promise<any>[] = [];
     
@@ -152,6 +152,7 @@ export class AuthService {
       photoURL: fbUser.photoURL,
       emailVerified: fbUser.emailVerified,
       role: role,
+      userType: profileData?.userType ?? 'normal',
       phoneNumber: profileData?.phoneNumber,
       shippingAddress: profileData?.shippingAddress
     };

@@ -17,14 +17,17 @@ export const routes: Routes = [
   },
   {
     path: 'cart',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/cart/cart').then((m) => m.CartComponent),
   },
   {
     path: 'wishlist',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/wishlist/wishlist').then((m) => m.WishlistComponent),
   },
   {
     path: 'checkout',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/checkout/checkout').then((m) => m.CheckoutComponent),
   },
   {

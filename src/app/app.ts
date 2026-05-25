@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
-import { RouterOutlet, Router, NavigationEnd, ChildrenOutletContexts } from '@angular/router';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { RouterOutlet, Router, NavigationEnd, ChildrenOutletContexts, Scroll } from '@angular/router';
+import { ViewportScroller } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { NavbarComponent } from './layout/navbar/navbar';
 import { FooterComponent } from './layout/footer/footer';
@@ -10,16 +11,20 @@ import { SeedService } from './core/services/seed.service';
 import { SettingsService } from './core/services/settings.service';
 import { selectCurrentUser } from './store/auth/auth.selectors';
 import { ToastComponent } from './shared/components/toast/toast.component';
+import { SettingsModalComponent } from './shared/components/settings-modal/settings-modal';
 import { routeAnimations } from './shared/animations/route-animations';
 import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, NavbarComponent, FooterComponent, ToastComponent],
+  imports: [RouterOutlet, NavbarComponent, FooterComponent, ToastComponent, SettingsModalComponent],
   animations: [routeAnimations],
   template: `
     <app-toast />
+    @if (showSettingsModal()) {
+      <app-settings-modal />
+    }
     @if (!isAdminRoute()) {
       <app-navbar />
     }
@@ -44,13 +49,37 @@ export class App implements OnInit {
   private readonly settingsService = inject(SettingsService);
   private readonly contexts = inject(ChildrenOutletContexts);
   private readonly router = inject(Router);
+  private readonly viewportScroller = inject(ViewportScroller);
   readonly isAdminRoute = signal(false);
+  readonly showSettingsModal = computed(() => !this.settingsService.hasSavedSettings());
 
   constructor() {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         this.isAdminRoute.set(event.urlAfterRedirects.startsWith('/admin'));
+      });
+
+    // Custom robust scroll restoration supporting route transitions, lazy loaded modules, and back/forward navigation
+    this.router.events
+      .pipe(filter((event): event is Scroll => event instanceof Scroll))
+      .subscribe((event) => {
+        if (event.position) {
+          // Back/forward navigation: restore scroll position after layout and route animation transitions complete
+          setTimeout(() => {
+            this.viewportScroller.scrollToPosition(event.position!);
+          }, 350);
+        } else if (event.anchor) {
+          // Fragment navigation: scroll to specific anchor after rendering
+          setTimeout(() => {
+            this.viewportScroller.scrollToAnchor(event.anchor!);
+          }, 350);
+        } else {
+          // New navigation: scroll to top of the page immediately for maximum responsiveness
+          if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          }
+        }
       });
   }
 

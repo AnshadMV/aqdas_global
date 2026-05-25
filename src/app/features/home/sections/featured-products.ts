@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, signal, ElementRef, viewChild, inject, OnInit, computed, effect } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { NgOptimizedImage } from '@angular/common';
 import { ProductActions } from '../../../store/product/product.actions';
@@ -10,6 +10,8 @@ import { Product, CartItem } from '../../../shared/models';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HOME_CONTENT } from '../../../../environments/constants';
+import { SettingsService } from '../../../core/services/settings.service';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -746,9 +748,13 @@ gsap.registerPlugin(ScrollTrigger);
                   <!-- Badges -->
                   <div class="badges-container">
                     <span class="weight-badge">
-                      {{ product.weight || '100g' }}
+                      {{ isWholesale() ? '5kg Bulk Crate' : (product.weight || '100g') }}
                     </span>
-                    @if (product.badge) {
+                    @if (isWholesale()) {
+                      <span class="promo-badge" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e293b;">
+                        B2B -20%
+                      </span>
+                    } @else if (product.badge) {
                       <span class="promo-badge">
                         {{ product.badge }}
                       </span>
@@ -780,7 +786,7 @@ gsap.registerPlugin(ScrollTrigger);
                     [class.text-white]="idx === 1 || idx === 3"
                     [class.text-dark]="idx !== 1 && idx !== 3"
                   >
-                    {{ product.name }}
+                    {{ product.name }}{{ isWholesale() ? ' (Bulk Box)' : '' }}
                   </h3>
 
                   <!-- Subtle Divider -->
@@ -793,14 +799,23 @@ gsap.registerPlugin(ScrollTrigger);
                         class="price-label"
                         [class.text-white]="idx === 1 || idx === 3"
                         [class.text-dark]="idx !== 1 && idx !== 3"
-                      >PRICE</span>
+                      >{{ isWholesale() ? 'B2B WHOLESALE PRICE' : 'PRICE' }}</span>
                       <div 
                         class="price-value"
                         [class.price-white]="idx === 1 || idx === 3"
                         [class.price-primary]="idx !== 1 && idx !== 3"
                       >
-                        <span class="price-currency">&#8377;</span>{{ product.price }}
+                        @if (isWholesale()) {
+                          <span class="price-currency">&#8377;</span>{{ getWholesalePrice(product.price) }} <span style="font-size: 0.7rem; font-weight: 600; opacity: 0.85;">/ Crate</span>
+                        } @else {
+                          <span class="price-currency">&#8377;</span>{{ product.price }}
+                        }
                       </div>
+                      @if (isWholesale()) {
+                        <div [style.color]="(idx === 1 || idx === 3) ? 'rgba(255,255,255,0.6)' : 'var(--theme-dark-light)'" style="font-size: 0.65rem; font-weight: 600; margin-top: 0.15rem;">
+                          Retail: <span style="text-decoration: line-through;">&#8377;{{ product.price * 50 }}</span>
+                        </div>
+                      }
                     </div>
 
                     <button
@@ -824,7 +839,7 @@ gsap.registerPlugin(ScrollTrigger);
           <!-- View Catalog Button -->
           <div class="mt-50 text-center">
             <a [routerLink]="content.catalogBtnLink" class="catalog-button">
-              <span>{{ content.catalogBtnText }}</span>
+              <span>{{ isWholesale() ? 'View B2B Wholesale Shop' : content.catalogBtnText }}</span>
               <svg class="catalog-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
               </svg>
@@ -837,15 +852,26 @@ gsap.registerPlugin(ScrollTrigger);
 })
 export class FeaturedProductsComponent implements OnInit {
   private readonly store = inject(Store);
+  private readonly settingsService = inject(SettingsService);
+  private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
+  
   readonly productsGrid = viewChild<ElementRef>('productsGrid');
   readonly content = HOME_CONTENT.featured;
   readonly products = this.store.selectSignal(selectActiveProducts);
   readonly loading = this.store.selectSignal(selectProductLoading);
   private readonly user = this.store.selectSignal(selectCurrentUser);
+
+  readonly isWholesale = computed(() => this.settingsService.settings().userType === 'wholesale');
   
   readonly displayProducts = computed(() => {
     return this.products().slice(0, 4);
   });
+
+  getWholesalePrice(retailPrice: number): number {
+    // 5kg Bulk Crate is 50x of retail 100g pack. Apply a flat 20% discount (0.8x)
+    return Math.round(retailPrice * 50 * 0.8);
+  }
 
   constructor() {
     // Trigger animation when products are loaded and displayed
@@ -866,13 +892,23 @@ export class FeaturedProductsComponent implements OnInit {
   addToCart(event: Event, product: Product): void {
     event.stopPropagation();
     event.preventDefault();
+
+    if (!this.user()) {
+      this.toast.show('Please sign in to access your cart!', 'info');
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    const price = this.isWholesale() ? this.getWholesalePrice(product.price) : product.price;
+    const weight = this.isWholesale() ? '5kg Bulk Crate' : (product.weight || '100g');
+
     const item: CartItem = {
       productId: product.id,
-      name: product.name,
+      name: product.name + (this.isWholesale() ? ' (Bulk Box)' : ''),
       imageUrl: product.imageUrl,
-      price: product.price,
+      price: price,
       quantity: 1,
-      weight: product.weight,
+      weight: weight,
     };
     this.store.dispatch(CartActions.addToCart({ item, uid: this.user()?.uid ?? null }));
   }
